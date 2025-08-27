@@ -1,0 +1,13 @@
+/* Test CSS file */
+body {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+}
+
+h1 {
+  color: #8b5cf6;
+  margin: 1rem 0;
+}

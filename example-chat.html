@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STARWEAVE AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark-grey': '#2d3748',
+                        'darker-grey': '#1a202c',
+                        'light-grey': '#4a5568',
+                        'pastel-purple': '#b39ddb',
+                        'purple-highlight': '#9575cd',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+            color: #f7fafc;
+        }
+        
+        .message-container {
+            scrollbar-width: thin;
+            scrollbar-color: #b39ddb #2d3748;
+        }
+        
+        .message-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .message-container::-webkit-scrollbar-track {
+            background: #2d3748;
+        }
+        
+        .message-container::-webkit-scrollbar-thumb {
+            background-color: #b39ddb;
+            border-radius: 20px;
+        }
+        
+        .glow {
+            box-shadow: 0 0 15px rgba(179, 157, 219, 0.3);
+        }
+        
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #b39ddb;
+            margin: 0 2px;
+        }
+        
+        .typing-indicator span:nth-child(1) {
+            animation: bounce 1.5s infinite ease-in-out;
+        }
+        
+        .typing-indicator span:nth-child(2) {
+            animation: bounce 1.5s infinite ease-in-out 0.2s;
+        }
+        
+        .typing-indicator span:nth-child(3) {
+            animation: bounce 1.5s infinite ease-in-out 0.4s;
+        }
+        
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-darker-grey py-4 px-6 border-b border-light-grey">
+        <div class="container mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-highlight to-pastel-purple flex items-center justify-center text-white text-xl font-bold glow">
+                    <i class="fas fa-star"></i>
+                </div>
+                <h1 class="text-xl font-bold text-white">STARWEAVE</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button class="text-pastel-purple hover:text-purple-highlight transition-colors">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button class="text-pastel-purple hover:text-purple-highlight transition-colors">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 container mx-auto px-4 py-6 flex flex-col">
+        <!-- Welcome Message -->
+        <div class="max-w-3xl mx-auto w-full mb-8 text-center animate-float">
+            <div class="inline-block p-4 rounded-lg bg-dark-grey border border-light-grey">
+                <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-gradient-to-br from-purple-highlight to-pastel-purple flex items-center justify-center text-white text-2xl glow">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h2 class="text-xl font-semibold mb-2 text-white">Hello, I'm STARWEAVE</h2>
+                <p class="text-gray-300">Your AI companion for thoughtful conversations. What would you like to explore today?</p>
+            </div>
+        </div>
+
+        <!-- Chat Container -->
+        <div class="flex-1 flex flex-col max-w-3xl w-full mx-auto">
+            <!-- Messages -->
+            <div class="message-container flex-1 overflow-y-auto mb-4 space-y-4 pr-2">
+                <!-- Example AI Message -->
+                <div class="flex items-start">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-highlight to-pastel-purple flex-shrink-0 flex items-center justify-center text-white text-xs mr-3 mt-1 glow">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="bg-dark-grey rounded-lg p-4 max-w-[85%]">
+                        <p class="text-white">Welcome to our conversation space. I'm here to assist you with information, creative ideas, or just a friendly chat. How can I help you today?</p>
+                    </div>
+                </div>
+
+                <!-- Example User Message -->
+                <div class="flex items-start justify-end">
+                    <div class="bg-gradient-to-br from-purple-highlight to-pastel-purple rounded-lg p-4 max-w-[85%]">
+                        <p class="text-white">Hi STARWEAVE! Can you tell me about yourself?</p>
+                    </div>
+                </div>
+
+                <!-- Example AI Response -->
+                <div class="flex items-start">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-highlight to-pastel-purple flex-shrink-0 flex items-center justify-center text-white text-xs mr-3 mt-1 glow">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="bg-dark-grey rounded-lg p-4 max-w-[85%]">
+                        <p class="text-white">Of course! I'm STARWEAVE, an AI designed for meaningful interactions. I combine knowledge with creativity to provide thoughtful responses. My name reflects how I weave together information like stars forming constellations.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Typing Indicator (hidden by default) -->
+            <div id="typingIndicator" class="hidden mb-4">
+                <div class="flex items-start">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-highlight to-pastel-purple flex-shrink-0 flex items-center justify-center text-white text-xs mr-3 mt-1 glow">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="bg-dark-grey rounded-lg p-3">
+                        <div class="typing-indicator flex space-x-1">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="bg-darker-grey rounded-lg p-4 border border-light-grey">
+                <form id="chatForm" class="flex space-x-3">
+                    <div class="flex-1 relative">
+                        <textarea id="messageInput" rows="1" class="w-full bg-dark-grey text-white rounded-lg px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-purple-highlight resize-none" placeholder="Message STARWEAVE..."></textarea>
+                    </div>
+                    <button type="submit" class="bg-gradient-to-br from-purple-highlight to-pastel-purple text-white rounded-lg w-12 h-12 flex items-center justify-center hover:opacity-90 transition-opacity glow">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+                <p class="text-xs text-gray-400 mt-2 text-center">STARWEAVE may produce inaccurate information about people, places, or facts.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-darker-grey py-3 px-6 border-t border-light-grey">
+        <div class="container mx-auto text-center text-gray-400 text-sm">
+            <p>© 2023 STARWEAVE AI • <span class="text-pastel-purple">v1.0.0</span></p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatForm = document.getElementById('chatForm');
+            const messageInput = document.getElementById('messageInput');
+            const messageContainer = document.querySelector('.message-container');
+            const typingIndicator = document.getElementById('typingIndicator');
+            
+            // Auto-resize textarea
+            messageInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+            
+            // Form submission
+            chatForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const message = messageInput.value.trim();
+                
+                if (message) {
+                    // Add user message
+                    addMessage(message, 'user');
+                    messageInput.value = '';
+                    messageInput.style.height = 'auto';
+                    
+                    // Show typing indicator
+                    typingIndicator.classList.remove('hidden');
+                    messageContainer.scrollTop = messageContainer.scrollHeight;
+                    
+                    // Simulate AI response after delay
+                    setTimeout(() => {
+                        typingIndicator.classList.add('hidden');
+                        const responses = [
+                            "That's an interesting question. Let me think about that...",
+                            "I appreciate your curiosity! Here's what I know...",
+                            "Fascinating topic! Here are some thoughts...",
+                            "I've considered your question carefully. My perspective is...",
+                            "Great question! After analyzing the information..."
+                        ];
+                        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                        addMessage(randomResponse, 'ai');
+                    }, 1500 + Math.random() * 2000);
+                }
+            });
+            
+            function addMessage(text, sender) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('flex', 'items-start');
+                
+                if (sender === 'user') {
+                    messageDiv.classList.add('justify-end');
+                    messageDiv.innerHTML = `
+                        <div class="bg-gradient-to-br from-purple-highlight to-pastel-purple rounded-lg p-4 max-w-[85%]">
+                            <p class="text-white">${text}</p>
+                        </div>
+                    `;
+                } else {
+                    messageDiv.innerHTML = `
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-highlight to-pastel-purple flex-shrink-0 flex items-center justify-center text-white text-xs mr-3 mt-1 glow">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="bg-dark-grey rounded-lg p-4 max-w-[85%]">
+                            <p class="text-white">${text}</p>
+                        </div>
+                    `;
+                }
+                
+                messageContainer.appendChild(messageDiv);
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+            }
+        });
+    </script>
+</body>
+</html>

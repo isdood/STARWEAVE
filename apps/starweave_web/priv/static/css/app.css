@@ -1,0 +1,82 @@
+/* STARWEAVE Main Application CSS - Minimal Version */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Basic theme variables */
+:root {
+  --color-background: #121212;
+  --color-text: #e0e0e0;
+  --color-pastel-purple: #b39ddb;
+}
+
+/* Base styles */
+html {
+  background-color: #111827; /* bg-gray-900 */
+  color: #f3f4f6; /* text-gray-100 */
+  height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Simple dark theme */
+.bg-dark {
+  background-color: var(--color-background);
+  color: var(--color-text);
+}
+
+.text-primary {
+  color: var(--color-pastel-purple);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-dark-grey);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-pastel-purple);
+  border-radius: 4px;
+}
+
+/* Responsive container */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Utility classes */
+.p-4 { padding: 1rem; }
+.m-4 { margin: 1rem; }
+.rounded { border-radius: 0.25rem; }
+.shadow { box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+
+/* Test CSS file */
+body {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+}
+
+h1 {
+  color: #8b5cf6;
+  margin: 1rem 0;
+}
+
