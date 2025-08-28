@@ -32,5 +32,14 @@ STARWEAVE is a rewrite/port of the GLIMMER pattern recognition engine. I origina
 ## Getting Started
 [Documentation](./pattern-engine.md) | [Technical Stack](./tech-stack.md)
 
+To start the Elixir Phoenix server, run the following command:
+cd ~/STARWEAVE/apps/starweave_web && mix phx.server
+
+To start the Python gRPC server, run the following command:
+cd ~/STARWEAVE/services/python && source venv/bin/activate && python -m server.pattern_server
+
+Ensure Ollama is running and accessible at http://localhost:11434:
+ollama run llama3.1
+
 ## License
 [Specify License]

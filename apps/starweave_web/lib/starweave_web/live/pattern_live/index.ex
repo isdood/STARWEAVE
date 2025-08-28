@@ -128,9 +128,6 @@ defmodule StarweaveWeb.PatternLive.Index do
         <!-- Welcome Message -->
         <div class="max-w-3xl mx-auto w-full mb-8 text-center">
           <div class="inline-block p-6 rounded-lg bg-dark-grey border border-light-grey animate-float">
-            <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-gradient-to-br from-purple-highlight to-pastel-purple flex items-center justify-center text-white text-2xl glow">
-              <span class="font-bold" aria-hidden="true">AI</span>
-            </div>
             <h2 class="text-xl font-semibold mb-2 text-white">Hello, I'm STARWEAVE</h2>
             <p class="text-gray-300">Your AI companion for pattern recognition and learning. What would you like to explore today?</p>
           </div>
@@ -152,7 +149,7 @@ defmodule StarweaveWeb.PatternLive.Index do
                 <!-- AI Message -->
                 <div class="flex items-start">
                   <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-highlight to-pastel-purple flex-shrink-0 flex items-center justify-center text-white text-xs mr-3 mt-1 glow">
-                    <span class="font-bold" aria-hidden="true">AI</span>
+                    <span class="font-bold" aria-hidden="true">SW</span>
                   </div>
                   <div class="message-bubble ai">
                     <p><%= message.text %></p>
@@ -166,7 +163,7 @@ defmodule StarweaveWeb.PatternLive.Index do
           <%= if @is_typing do %>
             <div class="flex items-start mb-4">
               <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-highlight to-pastel-purple flex-shrink-0 flex items-center justify-center text-white text-xs mr-3 mt-1 glow">
-                <span class="font-bold" aria-hidden="true">AI</span>
+                <span class="font-bold" aria-hidden="true">SW</span>
               </div>
               <div class="bg-dark-grey rounded-lg p-3">
                 <div class="typing-indicator">
@@ -190,6 +187,7 @@ defmodule StarweaveWeb.PatternLive.Index do
                   placeholder="Message STARWEAVE..."
                   class="chat-input"
                   phx-hook="AutoResize"
+                  autocomplete="off"
                 />
               </div>
               <button 
