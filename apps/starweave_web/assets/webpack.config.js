@@ -3,7 +3,7 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = {
   entry: {
-    app: ['./js/app.js', './css/empty.css']
+    app: ['./js/app.js', './css/app.css']
   },
   output: {
     filename: 'assets/app.js',
@@ -16,7 +16,7 @@ module.exports = {
         test: /\.css$/i,
         use: [
           MiniCssExtractPlugin.loader,
-          'css-loader'
+          'css-loader' // Only using css-loader, no PostCSS for now
         ]
       },
       {

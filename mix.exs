@@ -14,6 +14,10 @@ defmodule Starweave.MixProject do
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test
+      ],
+      # Add Phoenix code reloader as a listener for development
+      listeners: [
+        Phoenix.CodeReloader
       ]
     ]
   end

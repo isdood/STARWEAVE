@@ -8,8 +8,7 @@ defmodule StarweaveCore.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Starts a worker by calling: StarweaveCore.Worker.start_link(arg)
-      # {StarweaveCore.Worker, arg}
+      StarweaveCore.PatternStore
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

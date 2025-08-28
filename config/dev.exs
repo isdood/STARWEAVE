@@ -14,7 +14,12 @@ config :starweave_web, StarweaveWeb.Endpoint,
   code_reloader: true,
   debug_errors: true,
   secret_key_base: "sP8oXL2+YxCSDdwbh6jRknLQU/6HHzvo9txPubOG3oGuDS871GftAk3qs3lhIHcq",
-  watchers: []
+  watchers: [
+    npm: [
+      "run", "watch",
+      cd: Path.expand("../apps/starweave_web/assets", __DIR__)
+    ]
+  ]
 
 # ## SSL Support
 #
@@ -39,14 +44,75 @@ config :starweave_web, StarweaveWeb.Endpoint,
 # configured to run both http and https servers on
 # different ports.
 
+# Configure gRPC for development
+config :grpc, 
+  start_server: true,
+  log_level: :debug,
+  telemetry_enabled: true
+
+# Configure gRPC client with development settings
+config :starweave_web, StarweaveWeb.GRPC.PatternClient,
+  endpoint: "localhost:50051",
+  ssl: false,
+  adapter: GRPC.Client.Adapters.Gun,
+  connect_timeout: 10_000,
+  recv_timeout: 30_000,
+  retry_timeout: 1_000,
+  retry_max: 5,
+  adapter_opts: [
+    transport_opts: [
+      protocols: [:http2],
+      connect_timeout: 10_000,
+      recv_timeout: 30_000,
+      retry_timeout: 1_000,
+      retry_max: 5,
+      http2_opts: [
+        keepalive: 30_000
+      ],
+      verify: :verify_none
+    ]
+  ]
+
 # Watch static and templates for browser reloading.
 config :starweave_web, StarweaveWeb.Endpoint,
   live_reload: [
     web_console_logger: true,
     patterns: [
-      ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
-      ~r"lib/starweave_web_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
+      ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg|ico|webmanifest)$",
+      ~r"lib/starweave_web/(controllers|live|components|router)/?.*\.(ex|heex)$"
     ]
+  ]
+
+# gRPC client configuration
+config :grpc,
+  start_server: false,  # We're only using the client in this app
+  port: 50051,         # Default port for our Python gRPC server
+  host: "localhost",   # Default host for our Python gRPC server
+  # These settings can be overridden in config/runtime.exs for different environments
+  # See https://hexdocs.pm/grpc/readme.html#configuration for more options
+  adapter: GRPC.Adapter.Gun,  # Using Gun as the HTTP/2 client
+  adapter_opts: %{
+    connect_timeout: 5_000,  # 5 second connection timeout
+    retry_timeout: 1_000,    # 1 second between retries
+    retry_attempts: 3        # Number of retry attempts
+  }
+
+# Configuration for our PatternService client
+config :starweave_web, StarweaveWeb.GRPC.PatternClient,
+  # These settings can be overridden per environment
+  channel_opts: [
+    host: "localhost",
+    port: 50051,
+    cred: :this_is_insecure,  # For development only, use proper credentials in production
+    adapter_opts: %{
+      http2_opts: %{
+        # Additional HTTP/2 options can be specified here
+        # See https://ninenines.eu/docs/en/gun/2.0/manual/gun/
+        connect_timeout: 5_000,
+        retry_timeout: 1_000,
+        retry_attempts: 3
+      }
+    }
   ]
 
 # Enable dev routes for dashboard and mailbox

@@ -21,12 +21,11 @@ defmodule StarweaveWeb.Endpoint do
   #
   # You should set gzip to true if you are running phx.digest
   # when deploying your static files in production.
-  # Serve static files from the assets directory
   plug Plug.Static,
     at: "/",
     from: :starweave_web,
-    gzip: true,
-    only: ~w(assets css js images favicon.ico robots.txt site.webmanifest)
+    gzip: false,
+    only: ~w(assets css js images favicon.ico favicon-16x16.png favicon-32x32.png apple-touch-icon.png site.webmanifest)
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
@@ -47,22 +46,8 @@ defmodule StarweaveWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
-  plug StarweaveWeb.Router
-
   plug Phoenix.LiveDashboard.RequestLogger,
     param_key: "request_logger",
     cookie_key: "request_logger"
-
-  plug Plug.RequestId
-  plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
-
-  plug Plug.Parsers,
-    parsers: [:urlencoded, :multipart, :json],
-    pass: ["*/*"],
-    json_decoder: Phoenix.json_library()
-
-  plug Plug.MethodOverride
-  plug Plug.Head
-  plug Plug.Session, @session_options
   plug StarweaveWeb.Router
 end

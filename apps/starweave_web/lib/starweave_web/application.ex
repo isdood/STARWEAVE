@@ -16,7 +16,9 @@ defmodule StarweaveWeb.Application do
 
     children = [
       StarweaveWeb.Telemetry,
-      {Phoenix.PubSub, name: Starweave.PubSub}
+      {Phoenix.PubSub, name: Starweave.PubSub},
+      # Ensure HTTP pool for Req is started (needed for Ollama client)
+      {Finch, name: Req.Finch}
     ] ++ dns_cluster ++ [
       # Start the Endpoint (http/https)
       StarweaveWeb.Endpoint

@@ -2,6 +2,16 @@ defmodule StarweaveWeb.Router do
   use StarweaveWeb, :router
   import Phoenix.LiveView.Router
 
+  # Serve static files from the priv/static directory
+  scope "/" do
+    pipe_through :browser
+    get "/favicon.ico", StarweaveWeb.FaviconController, :index
+    get "/favicon-16x16.png", StarweaveWeb.FaviconController, :favicon16
+    get "/favicon-32x32.png", StarweaveWeb.FaviconController, :favicon32
+    get "/apple-touch-icon.png", StarweaveWeb.FaviconController, :apple_touch_icon
+    get "/site.webmanifest", StarweaveWeb.FaviconController, :webmanifest
+  end
+
   # Define the browser pipeline
   pipeline :browser do
     plug :accepts, ["html"]

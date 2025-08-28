@@ -61,6 +61,13 @@ defmodule StarweaveWeb.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       
+      # gRPC and Protocol Buffers
+      {:grpc, "~> 0.7.0", override: true},
+      {:protobuf, "~> 0.11.0"},
+      {:google_protos, "~> 0.3"},
+      {:gun, "~> 2.0", override: true},  # Required for gRPC client transport
+      {:cowlib, "~> 2.12", override: true},  # Required by Gun
+      
       # Development & Test
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_machina, "~> 2.7", only: :test},
@@ -72,6 +79,7 @@ defmodule StarweaveWeb.MixProject do
       
       # Testing
       {:lazy_html, ">= 0.1.0", only: :test},
+      {:mox, "~> 1.0", only: :test},
       
       # HTTP Server
       {:bandit, "~> 1.5"},
@@ -88,7 +96,9 @@ defmodule StarweaveWeb.MixProject do
   defp aliases do
     [
       setup: ["deps.get"],
-      precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"]
+      precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"],
+      "protobuf.gen": ["cmd protoc --elixir_out=plugins=grpc:lib/starweave_web/grpc -Ipriv/protos priv/protos/starweave.proto"],
+      "protoc.gen": ["protobuf.gen"]
     ]
   end
 end
