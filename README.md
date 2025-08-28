@@ -22,6 +22,11 @@ STARWEAVE is a rewrite/port of the GLIMMER pattern recognition engine. I origina
 - Verifiable pattern recognition metrics
 - Reproducible results
 
+### 4. No unexpected costs
+- No need to stress about API usage costs
+- Keep conversations private & local
+- Deploy & scale on your own hardware (if desired) rather than explicitly cloud compute
+
 ## Use Cases
 - Anomaly detection in high-velocity data streams
 - Predictive maintenance systems
