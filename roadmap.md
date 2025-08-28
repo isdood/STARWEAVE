@@ -26,7 +26,7 @@ STARWEAVE/
 
 ## 🌟 Phase 1: Foundation (Weeks 1-4)
 
-- [ ] After completion of Phase 1, we should be able to run the system and see a basic web interface to interact with the pattern engine and LLM. We will mark this phase complete when we can run the system and see a basic web interface to interact with the pattern engine and LLM, getting reasonable responses from the STARWEAVE enhanced LLM.
+- [x] After completion of Phase 1, we should be able to run the system and see a basic web interface to interact with the pattern engine and LLM. We will mark this phase complete when we can run the system and see a basic web interface to interact with the pattern engine and LLM, getting reasonable responses from the STARWEAVE enhanced LLM.
 
 ### Core Infrastructure
 - [x] Set up Elixir umbrella project structure
@@ -46,9 +46,9 @@ STARWEAVE/
   - Core tests added for store and matching; green under `mix test`.
 
 ### LLM Integration
-- [ ] Integrate Ollama LLM with basic text generation
-- [ ] Create LLM adapter pattern for multiple providers
-- [ ] Implement streaming response handling
+- [x] Integrate Ollama LLM with basic text generation
+- [x] Create LLM adapter pattern for multiple providers
+- [x] Implement streaming response handling
 
 ## 🚀 Phase 2: Distributed Processing (Weeks 5-8)
 
