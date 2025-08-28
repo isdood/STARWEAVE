@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package starweave;
+
+// The Pattern Recognition service definition
+service PatternService {
+  // Process a pattern and return recognition results
+  rpc RecognizePattern (PatternRequest) returns (PatternResponse) {}
+  
+  // Stream patterns for real-time processing
+  rpc StreamPatterns (stream PatternRequest) returns (stream PatternResponse) {}
+  
+  // Get system status
+  rpc GetStatus (StatusRequest) returns (StatusResponse) {}
+}
+
+// Pattern representation
+message Pattern {
+  string id = 1;
+  bytes data = 2;  // Serialized pattern data
+  map<string, string> metadata = 3;
+  double timestamp = 4;
+}
+
+// Request containing a pattern to recognize
+message PatternRequest {
+  Pattern pattern = 1;
+  repeated string context = 2;  // Additional context for recognition
+}
+
+// Response containing recognition results
+message PatternResponse {
+  string request_id = 1;
+  repeated string labels = 2;  // Recognized pattern labels
+  map<string, float> confidences = 3;  // Confidence scores for each label
+  string error = 4;  // Error message if any
+  map<string, string> metadata = 5;  // Additional response metadata
+}
+
+// Status request
+message StatusRequest {
+  bool detailed = 1;  // Whether to include detailed status
+}
+
+// Status response
+message StatusResponse {
+  string status = 1;  // Overall status
+  string version = 2;  // Service version
+  int64 uptime = 3;    // Uptime in seconds
+  map<string, string> metrics = 4;  // System metrics
+}
