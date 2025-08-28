@@ -8,8 +8,7 @@ defmodule StarweaveLlm.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # HTTP client pool for Req
-      {Finch, name: Req.Finch}
+      # Finch is started by starweave_web application
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

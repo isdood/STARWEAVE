@@ -23,12 +23,16 @@ defmodule StarweaveCore.PatternMatcher do
   end
 
   defp score(data, query, :exact) when is_binary(data), do: if(data == query, do: 1.0, else: 0.0)
-  defp score(data, query, :contains) when is_binary(data), do: if(String.contains?(data, query), do: 1.0, else: 0.0)
+
+  defp score(data, query, :contains) when is_binary(data),
+    do: if(String.contains?(data, query), do: 1.0, else: 0.0)
+
   defp score(data, query, :jaccard) when is_binary(data) do
     a = tokenize(data)
     b = tokenize(query)
     jaccard(a, b)
   end
+
   defp score(_, _, _), do: 0.0
 
   defp tokenize(text) do
@@ -45,5 +49,3 @@ defmodule StarweaveCore.PatternMatcher do
     if uni == 0, do: 0.0, else: inter / uni
   end
 end
-
-

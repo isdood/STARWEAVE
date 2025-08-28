@@ -57,11 +57,11 @@ defmodule StarweaveWeb.GRPC.PatternClientTest do
       case PatternClient.stream_patterns(patterns) do
         {:error, reason} ->
           flunk("Failed to process patterns: #{inspect(reason)}")
-          
+
         responses when is_list(responses) ->
           # Verify we got responses for each pattern
           assert length(responses) == length(patterns)
-          
+
           # Verify each response has the expected structure
           Enum.each(responses, fn response ->
             assert %Starweave.PatternResponse{} = response
@@ -70,7 +70,7 @@ defmodule StarweaveWeb.GRPC.PatternClientTest do
             assert is_map(response.confidences)
             assert is_map(response.metadata)
           end)
-          
+
         other ->
           flunk("Unexpected response: #{inspect(other)}")
       end
@@ -80,13 +80,13 @@ defmodule StarweaveWeb.GRPC.PatternClientTest do
   test "verifies server status response format" do
     # This test verifies that the server responds with the expected status format
     assert {:ok, %Starweave.StatusResponse{} = status} = PatternClient.get_status()
-    
+
     # Verify the response has the expected fields
     assert is_binary(status.status)
     assert is_binary(status.version)
     assert is_integer(status.uptime)
     assert is_map(status.metrics)
-    
+
     # Verify specific metrics we expect to be present
     assert is_binary(status.metrics["status"])
     assert is_binary(status.metrics["requests_processed"])
@@ -97,24 +97,26 @@ defmodule StarweaveWeb.GRPC.PatternClientTest do
   test "handles server unavailability gracefully" do
     # This test is skipped by default because it requires the server to be down
     # To run this test, stop the Python gRPC server first
-    
+
     # Test with a non-existent server
     original_opts = Application.get_env(:grpc, :default_channel_options)
-    
+
     # Set to non-existent server with a short timeout
     test_opts = [
       host: "localhost",
       port: 12345,
-      timeout: 1000,  # 1 second timeout
-      retry: false    # Disable retries for this test
+      # 1 second timeout
+      timeout: 1000,
+      # Disable retries for this test
+      retry: false
     ]
-    
+
     Application.put_env(:grpc, :default_channel_options, test_opts)
-    
+
     # This should fail because there's no server running on this port
     assert {:error, reason} = PatternClient.get_status()
     assert is_binary(reason) or is_map(reason) or is_list(reason)
-    
+
     # Restore original config
     Application.put_env(:grpc, :default_channel_options, original_opts)
   end

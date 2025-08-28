@@ -16,7 +16,8 @@ config :starweave_web, StarweaveWeb.Endpoint,
   secret_key_base: "sP8oXL2+YxCSDdwbh6jRknLQU/6HHzvo9txPubOG3oGuDS871GftAk3qs3lhIHcq",
   watchers: [
     npm: [
-      "run", "watch",
+      "run",
+      "watch",
       cd: Path.expand("../apps/starweave_web/assets", __DIR__)
     ]
   ]
@@ -45,7 +46,7 @@ config :starweave_web, StarweaveWeb.Endpoint,
 # different ports.
 
 # Configure gRPC for development
-config :grpc, 
+config :grpc,
   start_server: true,
   log_level: :debug,
   telemetry_enabled: true
@@ -85,16 +86,23 @@ config :starweave_web, StarweaveWeb.Endpoint,
 
 # gRPC client configuration
 config :grpc,
-  start_server: false,  # We're only using the client in this app
-  port: 50051,         # Default port for our Python gRPC server
-  host: "localhost",   # Default host for our Python gRPC server
+  # We're only using the client in this app
+  start_server: false,
+  # Default port for our Python gRPC server
+  port: 50051,
+  # Default host for our Python gRPC server
+  host: "localhost",
   # These settings can be overridden in config/runtime.exs for different environments
   # See https://hexdocs.pm/grpc/readme.html#configuration for more options
-  adapter: GRPC.Adapter.Gun,  # Using Gun as the HTTP/2 client
+  # Using Gun as the HTTP/2 client
+  adapter: GRPC.Adapter.Gun,
   adapter_opts: %{
-    connect_timeout: 5_000,  # 5 second connection timeout
-    retry_timeout: 1_000,    # 1 second between retries
-    retry_attempts: 3        # Number of retry attempts
+    # 5 second connection timeout
+    connect_timeout: 5_000,
+    # 1 second between retries
+    retry_timeout: 1_000,
+    # Number of retry attempts
+    retry_attempts: 3
   }
 
 # Configuration for our PatternService client
@@ -103,7 +111,8 @@ config :starweave_web, StarweaveWeb.GRPC.PatternClient,
   channel_opts: [
     host: "localhost",
     port: 50051,
-    cred: :this_is_insecure,  # For development only, use proper credentials in production
+    # For development only, use proper credentials in production
+    cred: :this_is_insecure,
     adapter_opts: %{
       http2_opts: %{
         # Additional HTTP/2 options can be specified here

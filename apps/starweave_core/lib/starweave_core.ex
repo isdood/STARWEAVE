@@ -16,6 +16,7 @@ defmodule StarweaveCore do
       metadata: Keyword.get(opts, :metadata, %{}),
       energy: Keyword.get(opts, :energy, 0.0)
     }
+
     PatternStore.put(pattern)
   end
 

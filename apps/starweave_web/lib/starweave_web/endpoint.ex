@@ -14,8 +14,7 @@ defmodule StarweaveWeb.Endpoint do
     websocket: true,
     longpoll: false
 
-  socket "/live", Phoenix.LiveView.Socket,
-    websocket: [connect_info: [session: @session_options]]
+  socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -25,7 +24,8 @@ defmodule StarweaveWeb.Endpoint do
     at: "/",
     from: :starweave_web,
     gzip: false,
-    only: ~w(assets css js images favicon.ico favicon-16x16.png favicon-32x32.png apple-touch-icon.png site.webmanifest)
+    only:
+      ~w(assets css js images favicon.ico favicon-16x16.png favicon-32x32.png apple-touch-icon.png site.webmanifest)
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
@@ -46,8 +46,10 @@ defmodule StarweaveWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
+
   plug Phoenix.LiveDashboard.RequestLogger,
     param_key: "request_logger",
     cookie_key: "request_logger"
+
   plug StarweaveWeb.Router
 end

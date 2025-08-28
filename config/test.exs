@@ -18,7 +18,7 @@ config :phoenix_live_view,
   enable_expensive_runtime_checks: true
 
 # Configure gRPC for test environment
-config :grpc, 
+config :grpc,
   start_server: false,
   log_level: :debug,
   telemetry_enabled: true

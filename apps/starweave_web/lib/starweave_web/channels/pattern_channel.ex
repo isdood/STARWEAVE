@@ -12,15 +12,17 @@ defmodule StarweaveWeb.PatternChannel do
   @impl true
   def join("pattern:lobby", _payload, socket) do
     Logger.info("User joined pattern lobby")
-    
+
     # Verify gRPC server connection on join
     case PatternClient.get_status() do
       {:ok, %Starweave.StatusResponse{status: "SERVING"}} ->
         Logger.info("gRPC server is ready")
         {:ok, socket}
+
       {:ok, %Starweave.StatusResponse{status: other}} ->
         Logger.error("gRPC server not ready, status: #{inspect(other)}")
         {:error, %{reason: "gRPC service unavailable"}}
+
       error ->
         Logger.error("Failed to connect to gRPC server: #{inspect(error)}")
         {:error, %{reason: "gRPC service unavailable"}}
@@ -33,17 +35,23 @@ defmodule StarweaveWeb.PatternChannel do
   @impl true
   def handle_in("recognize", %{"pattern" => pattern} = payload, socket) do
     Logger.debug("Received pattern recognition request: #{inspect(pattern)}")
-    
+
     # Prepare the pattern data for the gRPC request
     pattern_data = %{
       id: payload["id"] || "",
       data: pattern,
       metadata: Map.get(payload, "metadata", %{})
     }
-    
+
     # Call the gRPC service
     case PatternClient.recognize_pattern(pattern_data) do
-      {:ok, %PatternResponse{confidences: confidences, labels: labels, metadata: metadata, request_id: request_id}} ->
+      {:ok,
+       %PatternResponse{
+         confidences: confidences,
+         labels: labels,
+         metadata: metadata,
+         request_id: request_id
+       }} ->
         # Convert gRPC response to a map for JSON serialization
         response_data = %{
           request_id: request_id,
@@ -52,13 +60,13 @@ defmodule StarweaveWeb.PatternChannel do
           confidences: confidences,
           metadata: metadata
         }
-        
+
         # Broadcast the response to all subscribers
         broadcast(socket, "pattern_recognized", response_data)
-        
+
         # Send response to the requester
         {:reply, {:ok, response_data}, socket}
-        
+
       {:error, reason} ->
         Logger.error("Pattern recognition failed: #{inspect(reason)}")
         {:reply, {:error, %{reason: "Pattern recognition failed: #{inspect(reason)}"}}, socket}
@@ -68,7 +76,7 @@ defmodule StarweaveWeb.PatternChannel do
   @impl true
   def handle_in("learn", %{"pattern" => pattern, "label" => label} = payload, socket) do
     Logger.debug("Learning pattern: #{label} - #{inspect(pattern)}")
-    
+
     # Prepare the pattern data for the gRPC request
     pattern_data = %{
       id: payload["id"] || "",
@@ -76,7 +84,7 @@ defmodule StarweaveWeb.PatternChannel do
       label: label,
       metadata: Map.get(payload, "metadata", %{})
     }
-    
+
     # Placeholder: reuse recognize call until LearnPattern RPC is added
     case PatternClient.recognize_pattern(pattern_data) do
       {:ok, %PatternResponse{request_id: request_id, metadata: metadata}} ->
@@ -89,13 +97,13 @@ defmodule StarweaveWeb.PatternChannel do
           timestamp: DateTime.utc_now(),
           metadata: metadata
         }
-        
+
         # Broadcast the learned pattern to all subscribers
         broadcast(socket, "pattern_learned", response_data)
-        
+
         # Send response to the requester
         {:reply, {:ok, response_data}, socket}
-        
+
       {:error, reason} ->
         Logger.error("Pattern learning failed: #{inspect(reason)}")
         {:reply, {:error, %{reason: "Pattern learning failed: #{inspect(reason)}"}}, socket}
@@ -109,6 +117,7 @@ defmodule StarweaveWeb.PatternChannel do
       echo: payload,
       server_time_ms: System.system_time(:millisecond)
     }
+
     {:reply, {:ok, reply}, socket}
   end
 

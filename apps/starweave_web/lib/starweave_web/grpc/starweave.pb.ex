@@ -3,8 +3,8 @@ defmodule Starweave.Pattern.MetadataEntry do
 
   use Protobuf, map: true, protoc_gen_elixir_version: "0.15.0", syntax: :proto3
 
-  field :key, 1, type: :string
-  field :value, 2, type: :string
+  field(:key, 1, type: :string)
+  field(:value, 2, type: :string)
 end
 
 defmodule Starweave.Pattern do
@@ -12,10 +12,10 @@ defmodule Starweave.Pattern do
 
   use Protobuf, protoc_gen_elixir_version: "0.15.0", syntax: :proto3
 
-  field :id, 1, type: :string
-  field :data, 2, type: :bytes
-  field :metadata, 3, repeated: true, type: Starweave.Pattern.MetadataEntry, map: true
-  field :timestamp, 4, type: :double
+  field(:id, 1, type: :string)
+  field(:data, 2, type: :bytes)
+  field(:metadata, 3, repeated: true, type: Starweave.Pattern.MetadataEntry, map: true)
+  field(:timestamp, 4, type: :double)
 end
 
 defmodule Starweave.PatternRequest do
@@ -23,8 +23,8 @@ defmodule Starweave.PatternRequest do
 
   use Protobuf, protoc_gen_elixir_version: "0.15.0", syntax: :proto3
 
-  field :pattern, 1, type: Starweave.Pattern
-  field :context, 2, repeated: true, type: :string
+  field(:pattern, 1, type: Starweave.Pattern)
+  field(:context, 2, repeated: true, type: :string)
 end
 
 defmodule Starweave.PatternResponse.ConfidencesEntry do
@@ -32,8 +32,8 @@ defmodule Starweave.PatternResponse.ConfidencesEntry do
 
   use Protobuf, map: true, protoc_gen_elixir_version: "0.15.0", syntax: :proto3
 
-  field :key, 1, type: :string
-  field :value, 2, type: :float
+  field(:key, 1, type: :string)
+  field(:value, 2, type: :float)
 end
 
 defmodule Starweave.PatternResponse.MetadataEntry do
@@ -41,8 +41,8 @@ defmodule Starweave.PatternResponse.MetadataEntry do
 
   use Protobuf, map: true, protoc_gen_elixir_version: "0.15.0", syntax: :proto3
 
-  field :key, 1, type: :string
-  field :value, 2, type: :string
+  field(:key, 1, type: :string)
+  field(:value, 2, type: :string)
 end
 
 defmodule Starweave.PatternResponse do
@@ -50,16 +50,17 @@ defmodule Starweave.PatternResponse do
 
   use Protobuf, protoc_gen_elixir_version: "0.15.0", syntax: :proto3
 
-  field :request_id, 1, type: :string, json_name: "requestId"
-  field :labels, 2, repeated: true, type: :string
+  field(:request_id, 1, type: :string, json_name: "requestId")
+  field(:labels, 2, repeated: true, type: :string)
 
-  field :confidences, 3,
+  field(:confidences, 3,
     repeated: true,
     type: Starweave.PatternResponse.ConfidencesEntry,
     map: true
+  )
 
-  field :error, 4, type: :string
-  field :metadata, 5, repeated: true, type: Starweave.PatternResponse.MetadataEntry, map: true
+  field(:error, 4, type: :string)
+  field(:metadata, 5, repeated: true, type: Starweave.PatternResponse.MetadataEntry, map: true)
 end
 
 defmodule Starweave.StatusRequest do
@@ -67,7 +68,7 @@ defmodule Starweave.StatusRequest do
 
   use Protobuf, protoc_gen_elixir_version: "0.15.0", syntax: :proto3
 
-  field :detailed, 1, type: :bool
+  field(:detailed, 1, type: :bool)
 end
 
 defmodule Starweave.StatusResponse.MetricsEntry do
@@ -75,8 +76,8 @@ defmodule Starweave.StatusResponse.MetricsEntry do
 
   use Protobuf, map: true, protoc_gen_elixir_version: "0.15.0", syntax: :proto3
 
-  field :key, 1, type: :string
-  field :value, 2, type: :string
+  field(:key, 1, type: :string)
+  field(:value, 2, type: :string)
 end
 
 defmodule Starweave.StatusResponse do
@@ -84,10 +85,10 @@ defmodule Starweave.StatusResponse do
 
   use Protobuf, protoc_gen_elixir_version: "0.15.0", syntax: :proto3
 
-  field :status, 1, type: :string
-  field :version, 2, type: :string
-  field :uptime, 3, type: :int64
-  field :metrics, 4, repeated: true, type: Starweave.StatusResponse.MetricsEntry, map: true
+  field(:status, 1, type: :string)
+  field(:version, 2, type: :string)
+  field(:uptime, 3, type: :int64)
+  field(:metrics, 4, repeated: true, type: Starweave.StatusResponse.MetricsEntry, map: true)
 end
 
 defmodule Starweave.PatternService.Service do
@@ -95,11 +96,11 @@ defmodule Starweave.PatternService.Service do
 
   use GRPC.Service, name: "starweave.PatternService", protoc_gen_elixir_version: "0.15.0"
 
-  rpc :RecognizePattern, Starweave.PatternRequest, Starweave.PatternResponse
+  rpc(:RecognizePattern, Starweave.PatternRequest, Starweave.PatternResponse)
 
-  rpc :StreamPatterns, stream(Starweave.PatternRequest), stream(Starweave.PatternResponse)
+  rpc(:StreamPatterns, stream(Starweave.PatternRequest), stream(Starweave.PatternResponse))
 
-  rpc :GetStatus, Starweave.StatusRequest, Starweave.StatusResponse
+  rpc(:GetStatus, Starweave.StatusRequest, Starweave.StatusResponse)
 end
 
 defmodule Starweave.PatternService.Stub do

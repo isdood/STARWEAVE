@@ -54,33 +54,35 @@ defmodule StarweaveWeb.MixProject do
       {:phoenix_live_view, "~> 1.1.0"},
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
-      
+
       # Core dependencies
       {:jason, "~> 1.4"},
       {:plug_cowboy, "~> 2.6"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
-      
+
       # gRPC and Protocol Buffers
       {:grpc, "~> 0.7.0", override: true},
       {:protobuf, "~> 0.11.0"},
       {:google_protos, "~> 0.3"},
-      {:gun, "~> 2.0", override: true},  # Required for gRPC client transport
-      {:cowlib, "~> 2.12", override: true},  # Required by Gun
-      
+      # Required for gRPC client transport
+      {:gun, "~> 2.0", override: true},
+      # Required by Gun
+      {:cowlib, "~> 2.12", override: true},
+
       # Development & Test
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_machina, "~> 2.7", only: :test},
       {:floki, ">= 0.30.0", only: :test},
-      
+
       # Umbrella apps
       {:starweave_core, in_umbrella: true},
       {:starweave_llm, in_umbrella: true},
-      
+
       # Testing
       {:lazy_html, ">= 0.1.0", only: :test},
       {:mox, "~> 1.0", only: :test},
-      
+
       # HTTP Server
       {:bandit, "~> 1.5"},
       {:gettext, "~> 0.20"}
@@ -97,7 +99,9 @@ defmodule StarweaveWeb.MixProject do
     [
       setup: ["deps.get"],
       precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"],
-      "protobuf.gen": ["cmd protoc --elixir_out=plugins=grpc:lib/starweave_web/grpc -Ipriv/protos priv/protos/starweave.proto"],
+      "protobuf.gen": [
+        "cmd protoc --elixir_out=plugins=grpc:lib/starweave_web/grpc -Ipriv/protos priv/protos/starweave.proto"
+      ],
       "protoc.gen": ["protobuf.gen"]
     ]
   end

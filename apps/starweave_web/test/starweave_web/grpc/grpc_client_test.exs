@@ -1,13 +1,13 @@
 defmodule StarweaveWeb.GRPCClientTest do
   use ExUnit.Case, async: true
   import Mox
-  
+
   # Make sure mocks are verified when the test exits
   setup :verify_on_exit!
-  
+
   # Import the mock module
   alias StarweaveWeb.GRPCClientMock
-  
+
   # Use the mock directly in tests
   @mock_client StarweaveWeb.GRPCClientMock
 
@@ -35,7 +35,7 @@ defmodule StarweaveWeb.GRPCClientTest do
     test "successfully analyzes a pattern" do
       pattern = test_pattern()
       response = test_response()
-      
+
       # Setup the mock expectation
       expect(GRPCClientMock, :analyze_pattern, fn ^pattern, _opts ->
         {:ok, response}
@@ -49,7 +49,7 @@ defmodule StarweaveWeb.GRPCClientTest do
 
     test "handles gRPC errors" do
       pattern = test_pattern()
-      
+
       # Setup the mock to return an error
       expect(GRPCClientMock, :analyze_pattern, fn ^pattern, _opts ->
         {:error, "gRPC error: connection refused"}
@@ -64,7 +64,7 @@ defmodule StarweaveWeb.GRPCClientTest do
   describe "create_channel/2" do
     test "creates a channel with default options" do
       endpoint = "localhost:50051"
-      
+
       # Setup the mock expectation
       expect(GRPCClientMock, :create_channel, fn ^endpoint, opts ->
         assert is_list(opts)
@@ -79,7 +79,7 @@ defmodule StarweaveWeb.GRPCClientTest do
   describe "close_channel/1" do
     test "closes a channel successfully" do
       channel = %GRPC.Channel{}
-      
+
       # Setup the mock expectation
       expect(GRPCClientMock, :close_channel, fn ^channel ->
         :ok

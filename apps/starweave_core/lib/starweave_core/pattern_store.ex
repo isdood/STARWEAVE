@@ -51,5 +51,3 @@ defmodule StarweaveCore.PatternStore do
     {:reply, :ok, state}
   end
 end
-
-

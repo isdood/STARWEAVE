@@ -16,7 +16,11 @@ defmodule StarweaveWeb.CoreComponents do
   attr :errors, :list, default: []
   attr :required, :boolean, default: false
   attr :class, :string, default: ""
-  attr :rest, :global, include: ~w(autocomplete disabled form max maxlength min minlength pattern placeholder readonly required size step)
+
+  attr :rest, :global,
+    include:
+      ~w(autocomplete disabled form max maxlength min minlength pattern placeholder readonly required size step)
+
   slot :inner_block
 
   def input(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
@@ -44,9 +48,9 @@ defmodule StarweaveWeb.CoreComponents do
           class={["rounded border-gray-300 text-indigo-600 focus:ring-indigo-500", @class]}
           {@rest}
         />
-        <span class="ml-2 text-sm text-gray-900"><%= @label %></span>
+        <span class="ml-2 text-sm text-gray-900">{@label}</span>
       </label>
-      <.error :for={msg <- @errors}><%= msg %></.error>
+      <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """
   end
@@ -54,16 +58,16 @@ defmodule StarweaveWeb.CoreComponents do
   def input(%{type: "select"} = assigns) do
     ~H"""
     <div phx-feedback-for={@name}>
-      <.label for={@id}><%= @label %></.label>
+      <.label for={@id}>{@label}</.label>
       <select
         id={@id}
         name={@name}
         class="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
         {@rest}
       >
-        <%= render_slot(@inner_block) %>
+        {render_slot(@inner_block)}
       </select>
-      <.error :for={msg <- @errors}><%= msg %></.error>
+      <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """
   end
@@ -71,7 +75,7 @@ defmodule StarweaveWeb.CoreComponents do
   def input(assigns) do
     ~H"""
     <div phx-feedback-for={@name}>
-      <.label for={@id}><%= @label %></.label>
+      <.label for={@id}>{@label}</.label>
       <input
         type={@type}
         name={@name}
@@ -79,12 +83,13 @@ defmodule StarweaveWeb.CoreComponents do
         value={Phoenix.HTML.Form.normalize_value(@type, @value)}
         class={[
           "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm",
-          @errors != [] && "border-red-300 text-red-900 placeholder-red-300 focus:border-red-500 focus:outline-none focus:ring-red-500",
+          @errors != [] &&
+            "border-red-300 text-red-900 placeholder-red-300 focus:border-red-500 focus:outline-none focus:ring-red-500",
           @class
         ]}
         {@rest}
       />
-      <.error :for={msg <- @errors}><%= msg %></.error>
+      <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """
   end
@@ -98,7 +103,7 @@ defmodule StarweaveWeb.CoreComponents do
   def label(assigns) do
     ~H"""
     <label for={@for} class="block text-sm font-medium text-gray-700">
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </label>
     """
   end
@@ -121,7 +126,7 @@ defmodule StarweaveWeb.CoreComponents do
       ]}
       {@rest}
     >
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </button>
     """
   end
@@ -134,7 +139,7 @@ defmodule StarweaveWeb.CoreComponents do
   def error(assigns) do
     ~H"""
     <p class="mt-2 text-sm text-red-600">
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </p>
     """
   end

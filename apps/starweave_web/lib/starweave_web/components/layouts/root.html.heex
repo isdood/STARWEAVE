@@ -6,46 +6,59 @@
     <meta name="theme-color" content="#0f172a" />
     <meta name="csrf-token" content={get_csrf_token()} />
     
-    <!-- Primary Meta Tags -->
-    <title><%= if assigns[:page_title], do: "#{@page_title} · ", else: "" %>Starweave</title>
+<!-- Primary Meta Tags -->
+    <title>{if assigns[:page_title], do: "#{@page_title} · ", else: ""}Starweave</title>
     <meta name="title" content="Starweave - AI-Powered Conversations" />
-    <meta name="description" content="Experience the future of AI conversations with Starweave. Fast, secure, and private AI chat platform." />
+    <meta
+      name="description"
+      content="Experience the future of AI conversations with Starweave. Fast, secure, and private AI chat platform."
+    />
     
-    <!-- Open Graph / Facebook -->
+<!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://starweave.app/" />
     <meta property="og:title" content="Starweave - AI-Powered Conversations" />
-    <meta property="og:description" content="Experience the future of AI conversations with Starweave. Fast, secure, and private AI chat platform." />
+    <meta
+      property="og:description"
+      content="Experience the future of AI conversations with Starweave. Fast, secure, and private AI chat platform."
+    />
     <meta property="og:image" content={~p"/images/og-image.jpg"} />
     
-    <!-- Twitter -->
+<!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:url" content="https://starweave.app/" />
     <meta property="twitter:title" content="Starweave - AI-Powered Conversations" />
-    <meta property="twitter:description" content="Experience the future of AI conversations with Starweave. Fast, secure, and private AI chat platform." />
+    <meta
+      property="twitter:description"
+      content="Experience the future of AI conversations with Starweave. Fast, secure, and private AI chat platform."
+    />
     <meta property="twitter:image" content={~p"/images/og-image.jpg"} />
     
-    <!-- Favicon -->
+<!-- Favicon -->
     <link rel="icon" type="image/png" sizes="32x32" href={~p"/favicon-32x32.png"} />
     <link rel="icon" type="image/png" sizes="16x16" href={~p"/favicon-16x16.png"} />
     <link rel="apple-touch-icon" sizes="180x180" href={~p"/apple-touch-icon.png"} />
     <link rel="manifest" href={~p"/site.webmanifest"} />
     
-    <!-- Fonts -->
+<!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
     
-    <!-- Styles and Scripts -->
+<!-- Styles and Scripts -->
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
-    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}></script>
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
+    </script>
     
-    <!-- Theme Script -->
+<!-- Theme Script -->
     <script>
       // Check for saved theme preference or use system preference
       const theme = localStorage.getItem('theme') || 
                    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      
+
       // Apply theme class to HTML element
       if (theme === 'dark') {
         document.documentElement.classList.add('dark');
@@ -54,7 +67,7 @@
         document.documentElement.classList.remove('dark');
         document.documentElement.setAttribute('data-theme', 'light');
       }
-      
+
       // Function to toggle theme
       window.toggleTheme = function() {
         const html = document.documentElement;
@@ -63,7 +76,7 @@
         html.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
       };
-      
+
       // Toggle mobile menu
       window.toggleMobileMenu = function() {
         const menu = document.getElementById('mobile-menu');
@@ -88,21 +101,22 @@
             </a>
           </div>
           
-          <!-- Desktop Navigation -->
+<!-- Desktop Navigation -->
           <nav class="hidden md:flex items-center space-x-1">
             <.link
               navigate={~p"/"}
               class={[
                 "px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200",
-                (@current_uri && @current_uri.path == "/") && "bg-surface-700 text-primary",
-                (!@current_uri || @current_uri.path != "/") && "text-on-surface/90 hover:bg-surface-700/50 hover:text-on-surface"
+                @current_uri && @current_uri.path == "/" && "bg-surface-700 text-primary",
+                (!@current_uri || @current_uri.path != "/") &&
+                  "text-on-surface/90 hover:bg-surface-700/50 hover:text-on-surface"
               ]}
             >
               Home
             </.link>
           </nav>
           
-          <!-- Right side controls -->
+<!-- Right side controls -->
           <div class="flex items-center space-x-3">
             <!-- Theme Toggle -->
             <button
@@ -112,16 +126,36 @@
               aria-label="Toggle theme"
             >
               <!-- Sun Icon (Light Mode) -->
-              <svg class="w-5 h-5 dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              <svg
+                class="w-5 h-5 dark:hidden"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                />
               </svg>
               <!-- Moon Icon (Dark Mode) -->
-              <svg class="w-5 h-5 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              <svg
+                class="w-5 h-5 hidden dark:block"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                />
               </svg>
             </button>
             
-            <!-- Mobile menu button -->
+<!-- Mobile menu button -->
             <button
               type="button"
               onclick="toggleMobileMenu()"
@@ -129,34 +163,42 @@
               aria-label="Toggle menu"
             >
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </button>
           </div>
         </div>
       </div>
       
-      <!-- Mobile menu, show/hide based on menu state -->
+<!-- Mobile menu, show/hide based on menu state -->
       <div class="md:hidden hidden" id="mobile-menu">
         <div class="px-2 pt-2 pb-3 space-y-1">
           <.link
             navigate={~p"/"}
-            class={["block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200",
-                   (@current_uri && @current_uri.path == "/") && "bg-surface-700 text-primary",
-                   (!@current_uri || @current_uri.path != "/") && "text-on-surface/90 hover:bg-surface-700 hover:text-on-surface"]}
+            class={[
+              "block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200",
+              @current_uri && @current_uri.path == "/" && "bg-surface-700 text-primary",
+              (!@current_uri || @current_uri.path != "/") &&
+                "text-on-surface/90 hover:bg-surface-700 hover:text-on-surface"
+            ]}
           >
             Home
           </.link>
         </div>
       </div>
     </header>
-
-    <!-- Main content -->
+    
+<!-- Main content -->
     <main class="flex-1 bg-background transition-colors duration-200">
-      <%= @inner_content %>
+      {@inner_content}
     </main>
     
-    <!-- footer removed for dev -->
-    
+<!-- footer removed for dev -->
+
   </body>
 </html>

@@ -20,5 +20,3 @@ defmodule StarweaveCore.Pattern do
           inserted_at: integer() | nil
         }
 end
-
-

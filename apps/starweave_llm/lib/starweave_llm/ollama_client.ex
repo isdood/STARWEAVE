@@ -12,6 +12,7 @@ defmodule StarweaveLlm.OllamaClient do
     model = Keyword.get(opts, :model, System.get_env("OLLAMA_MODEL") || "llama3.1")
 
     url = host |> URI.parse() |> URI.merge("/api/chat") |> URI.to_string()
+
     body = %{
       model: model,
       messages: [
@@ -24,12 +25,12 @@ defmodule StarweaveLlm.OllamaClient do
     case Req.post(url: url, json: body, receive_timeout: 30_000) do
       {:ok, %Req.Response{status: 200, body: %{"message" => %{"content" => content}}}} ->
         {:ok, content}
+
       {:ok, %Req.Response{status: status, body: body}} ->
         {:error, {:http_error, status, body}}
+
       {:error, reason} ->
         {:error, reason}
     end
   end
 end
-
-

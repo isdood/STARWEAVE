@@ -5,10 +5,10 @@ defmodule StarweaveWeb.GRPCCase do
   """
 
   use ExUnit.CaseTemplate
-  
+
   # Set up Mox
   import Mox
-  
+
   # Set up test case
   setup :set_mox_from_context
   setup :verify_on_exit!
