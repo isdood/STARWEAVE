@@ -362,7 +362,7 @@ form.flex {
 
 /* Ensure the send button stays aligned with the bottom of the input */
 button[type="submit"] {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.05rem;
 }
 
 /* Focus state for the form container */
@@ -376,7 +376,7 @@ form.flex > button[type="submit"].btn-primary {
   margin-right: 0.4rem !important;
   margin-left: 0.5rem !important;
   width: 3.2rem !important;
-  height: 3.0rem !important;
+  height: 3.2rem !important;
   font-size: 1.25rem !important;
   display: flex !important;
   align-items: center !important;
@@ -527,21 +527,31 @@ main {
   max-width: 75%;
   padding: 0.75rem 1rem;
   border-radius: 0.75rem;
-  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
   line-height: 1.4;
+  position: relative;
 }
 
+/* User message bubbles (right-aligned) */
 .message-bubble.user {
   background-color: var(--color-primary-darker);
   color: #fff;
   border-top-right-radius: 0.25rem;
+  margin-left: auto;
+  margin-right: 0;
+  border-top-left-radius: 0.75rem;
+  border-bottom-right-radius: 0.25rem;
 }
 
+/* AI message bubbles (left-aligned) */
 .message-bubble.ai {
   background-color: #1f2937;
   border: 1px solid #374151;
   color: var(--color-text);
+  margin-right: auto;
+  margin-left: 0;
   border-top-left-radius: 0.25rem;
+  border-bottom-left-radius: 0.25rem;
 }
 
 /* Typing indicator animation */

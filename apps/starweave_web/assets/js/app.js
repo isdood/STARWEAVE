@@ -82,7 +82,7 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     })
 
-    // Auto-resize textarea
+    // Auto-resize textarea and handle Enter/Shift+Enter
     document.addEventListener("input", function(e) {
       if (e.target && e.target.matches("textarea")) {
         try {
@@ -90,6 +90,20 @@ document.addEventListener("DOMContentLoaded", function() {
           e.target.style.height = (e.target.scrollHeight) + 'px'
         } catch (e) {
           console.error("Error resizing textarea:", e)
+        }
+      }
+    })
+
+    // Handle Enter/Shift+Enter in chat input
+    document.addEventListener("keydown", function(e) {
+      const textarea = e.target
+      if (e.key === 'Enter' && textarea.matches("textarea")) {
+        if (!e.shiftKey) {
+          e.preventDefault()
+          const form = textarea.closest('form')
+          if (form) {
+            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+          }
         }
       }
     })
