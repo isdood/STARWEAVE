@@ -1,0 +1,20 @@
+digraph "Pattern Relationships" {
+  rankdir=LR;
+  node [shape=box, style=rounded];
+  
+    p0 [label="animal1
+The quick brown ..."];
+  p1 [label="animal2
+The quick brown ..."];
+  p2 [label="shakespeare
+To be or not to ..."];
+  p3 [label="proverb
+All that glitter..."];
+  p4 [label="animal3
+The lazy dog sle..."];
+  
+    p0 -> p1 [label="1.00"];
+  p0 -> p4 [label="0.27"];
+  p1 -> p4 [label="0.27"];
+  p2 -> p3 [label="0.25"];
+}
