@@ -6,6 +6,7 @@ defmodule StarweaveWeb.PatternLive.Index do
   require Logger
   
   alias StarweaveLLM.ContextManager
+  import StarweaveWeb.MarkdownHelper, only: [render_markdown: 1]
 
   @impl true
   def mount(_params, _session, %{assigns: %{live_action: _live_action}} = socket) do
@@ -184,7 +185,9 @@ defmodule StarweaveWeb.PatternLive.Index do
                     <span class="font-bold" aria-hidden="true">SW</span>
                   </div>
                   <div class="message-bubble ai">
-                    <p>{message.text}</p>
+                    <div class="prose prose-invert max-w-none">
+                      {render_markdown(message.text)}
+                    </div>
                   </div>
                 </div>
               <% end %>

@@ -576,6 +576,104 @@ main {
   40% { transform: translateY(-4px); opacity: 1; }
 }
 
+/* Markdown Styling */
+.prose {
+  color: var(--color-text);
+  line-height: 1.6;
+}
+
+.prose h1, 
+.prose h2, 
+.prose h3, 
+.prose h4, 
+.prose h5, 
+.prose h6 {
+  color: var(--color-text);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+.prose h1 { font-size: 1.5em; }
+.prose h2 { font-size: 1.3em; }
+.prose h3 { font-size: 1.1em; }
+
+.prose p {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+}
+
+.prose a {
+  color: var(--color-primary);
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-primary);
+  transition: all 0.2s ease;
+}
+
+.prose a:hover {
+  color: var(--color-primary-dark);
+  border-bottom-color: var(--color-primary-dark);
+}
+
+.prose ul, 
+.prose ol {
+  margin: 0.75em 0;
+  padding-left: 1.5em;
+}
+
+.prose li {
+  margin: 0.25em 0;
+}
+
+.prose code {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 0.25rem;
+  padding: 0.2em 0.4em;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.9em;
+}
+
+.prose pre {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 0.5rem;
+  padding: 1em;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+}
+
+.prose blockquote {
+  border-left: 3px solid var(--color-primary);
+  margin: 1em 0;
+  padding: 0 1em;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+/* Invert colors for dark theme */
+.prose-invert {
+  --tw-prose-body: var(--color-text);
+  --tw-prose-headings: var(--color-text);
+  --tw-prose-lead: var(--color-text-secondary);
+  --tw-prose-links: var(--color-primary);
+  --tw-prose-bold: var(--color-text);
+  --tw-prose-counters: var(--color-text-secondary);
+  --tw-prose-bullets: var(--color-text-secondary);
+  --tw-prose-hr: var(--color-text-secondary);
+  --tw-prose-quotes: var(--color-text);
+  --tw-prose-quote-borders: var(--color-primary);
+  --tw-prose-captions: var(--color-text-secondary);
+  --tw-prose-code: var(--color-text);
+  --tw-prose-pre-code: var(--color-text);
+  --tw-prose-pre-bg: rgba(0, 0, 0, 0.3);
+  --tw-prose-th-borders: var(--color-text-secondary);
+  --tw-prose-td-borders: var(--color-text-secondary);
+}
+
 /* Subtle float for welcome card */
 .animate-float {
   animation: float 6s ease-in-out infinite;

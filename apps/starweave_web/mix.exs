@@ -87,7 +87,10 @@ defmodule StarweaveWeb.MixProject do
 
       # HTTP Server
       {:bandit, "~> 1.5"},
-      {:gettext, "~> 0.20"}
+      {:gettext, "~> 0.20"},
+      
+      # Markdown support
+      {:earmark, "~> 1.4"}
     ]
   end
 
