@@ -26,7 +26,8 @@ defmodule StarweaveLlm.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:req, "~> 0.5"}
+      {:req, "~> 0.5"},
+      {:starweave_core, in_umbrella: true}
     ]
   end
 end

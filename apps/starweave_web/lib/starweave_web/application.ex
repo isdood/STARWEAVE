@@ -7,6 +7,14 @@ defmodule StarweaveWeb.Application do
 
   @impl true
   def start(_type, _args) do
+    # Ensure required applications are started
+    {:ok, _} = Application.ensure_all_started(:starweave_core)
+    
+    # Start Finch if not already started
+    if !Process.whereis(Req.Finch) do
+      {:ok, _} = Finch.start_link(name: Req.Finch)
+    end
+
     # Only include DNSCluster in production by default
     dns_cluster =
       if Application.get_env(:starweave_web, :dns_cluster_enabled, false) do
@@ -17,10 +25,9 @@ defmodule StarweaveWeb.Application do
 
     children =
       [
+        # Web application dependencies
         StarweaveWeb.Telemetry,
-        {Phoenix.PubSub, name: Starweave.PubSub},
-        # Ensure HTTP pool for Req is started (needed for Ollama client)
-        {Finch, name: Req.Finch}
+        {Phoenix.PubSub, name: Starweave.PubSub}
       ] ++
         dns_cluster ++
         [

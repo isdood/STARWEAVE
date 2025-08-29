@@ -32,8 +32,7 @@ defmodule StarweaveWeb.MixProject do
   def application do
     [
       mod: {StarweaveWeb.Application, []},
-      extra_applications: [:logger, :runtime_tools, :os_mon, :gettext],
-      included_applications: [:starweave_core, :starweave_llm]
+      extra_applications: [:logger, :runtime_tools, :os_mon, :gettext, :starweave_core, :starweave_llm]
     ]
   end
 
@@ -45,6 +44,9 @@ defmodule StarweaveWeb.MixProject do
 
   defp deps do
     [
+      # Dependencies
+      {:starweave_core, in_umbrella: true},
+      
       # Phoenix
       {:phoenix, "~> 1.8.0"},
       {:phoenix_ecto, "~> 4.6"},

@@ -4,6 +4,8 @@ defmodule StarweaveWeb.PatternLive.Index do
   """
   use StarweaveWeb, :live_view
   require Logger
+  
+  alias StarweaveLLM.ContextManager
 
   @impl true
   def mount(_params, _session, %{assigns: %{live_action: _live_action}} = socket) do
@@ -26,13 +28,17 @@ defmodule StarweaveWeb.PatternLive.Index do
         "Welcome to STARWEAVE! I can help you recognize and learn patterns. Try sending me a message or a pattern to get started.",
       timestamp: DateTime.utc_now()
     }
+    
+    # Initialize context manager for conversation history
+    context_manager = ContextManager.new()
 
     {:ok,
      socket
      |> assign(:page_title, "STARWEAVE")
      |> assign(:current_uri, %URI{path: "/"})
      |> assign(:messages, [welcome_message])
-     |> assign(:is_typing, false)}
+     |> assign(:is_typing, false)
+     |> assign(:context_manager, context_manager)}
   end
 
   @impl true
@@ -48,8 +54,9 @@ defmodule StarweaveWeb.PatternLive.Index do
     # Show typing indicator
     send(self(), {:typing_started})
 
-    # Process the message via LLM
-    send(self(), {:llm_chat, message})
+    # Get current context manager and process the message via LLM with context
+    context_manager = socket.assigns.context_manager
+    send(self(), {:llm_chat, message, context_manager})
 
     {:noreply, assign(socket, messages: socket.assigns.messages ++ [user_message])}
   end
@@ -73,26 +80,41 @@ defmodule StarweaveWeb.PatternLive.Index do
     {:noreply, assign(socket, :is_typing, false)}
   end
 
-  def handle_info({:llm_chat, message}, socket) do
-    reply =
-      case StarweaveLlm.OllamaClient.chat(message) do
-        {:ok, content} ->
-          content
+  def handle_info({:llm_chat, message, context_manager}, socket) do
+    # Use chat_with_context to maintain conversation history and memory
+    case StarweaveLlm.OllamaClient.chat_with_context(
+      message, 
+      context_manager,
+      model: "llama3.1",  # or get from config
+      use_memory: true
+    ) do
+      {:ok, reply, updated_context} ->
+        ai_message = %{
+          id: System.unique_integer([:positive]),
+          sender: "ai",
+          text: reply,
+          timestamp: DateTime.utc_now()
+        }
 
-        {:error, _reason} ->
-          # Fallback response when Ollama is unavailable
-          "I'm having trouble connecting to my language model right now. This might be due to system resource limitations. You can still interact with me for pattern recognition features!"
-      end
+        send(self(), {:typing_stopped})
+        
+        {:noreply, 
+         socket 
+         |> assign(messages: socket.assigns.messages ++ [ai_message])
+         |> assign(:context_manager, updated_context)}
 
-    ai_message = %{
-      id: System.unique_integer([:positive]),
-      sender: "ai",
-      text: reply,
-      timestamp: DateTime.utc_now()
-    }
-
-    send(self(), {:typing_stopped})
-    {:noreply, assign(socket, messages: socket.assigns.messages ++ [ai_message])}
+      {:error, _reason} ->
+        # Fallback response when there's an error
+        error_message = %{
+          id: System.unique_integer([:positive]),
+          sender: "ai",
+          text: "I'm having trouble connecting to my language model right now. This might be due to system resource limitations. You can still interact with me for pattern recognition features!",
+          timestamp: DateTime.utc_now()
+        }
+        
+        send(self(), {:typing_stopped})
+        {:noreply, assign(socket, messages: socket.assigns.messages ++ [error_message])}
+    end
   end
 
   def handle_info({:new_message, message}, socket) do
