@@ -47,7 +47,7 @@ Ensure Ollama is running and accessible at http://localhost:11434:
 ollama run llama3.1
 
 ## Notes
-- You may need to use a different model depending on your setup. I'm using llama3.1 on a Radeon 7900 XTX GPU, 64GB RAM & a 9950X CPU. Responses are near-instant with this setup.
+- You may need to use a different model depending on your setup. I'm using llama3.1 on a Sapphire 7900 XTX GPU, 64GB RAM & a 9950X CPU. Responses are near-instant with this setup.
 
 ## License
 [Specify License]

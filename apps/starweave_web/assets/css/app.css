@@ -73,7 +73,7 @@ a:hover {
 /* Buttons */
 .btn {
   display: inline-block;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.5rem;
   border-radius: 0.25rem;
   font-weight: 500;
   text-align: center;
@@ -292,9 +292,10 @@ form.flex.space-x-3 {
   flex: 1;
   margin: 0;
   padding: 0;
-  height: 3rem; /* Match the input height */
+  min-height: 3rem;
   display: flex;
   align-items: center;
+  margin-right: 0.75rem;
 }
 
 /* Chat input container */
@@ -307,18 +308,26 @@ form.flex.space-x-3 {
 .chat-input {
   width: 100%;
   padding: 0.75rem 1rem;
-  background-color: #1f2937;
-  border: 1px solid #374151;
-  border-radius: 0.5rem;
+  background: transparent;
+  border: none !important;
   color: #f3f4f6;
   font-size: 1rem;
   line-height: 1.5;
-  transition: all 0.2s;
-  height: 3rem;
+  min-height: 3rem;
+  max-height: 12rem;
   box-sizing: border-box;
   margin: 0;
+  border-radius: 0.5rem;
   appearance: none;
   -webkit-appearance: none;
+  outline: none !important;
+  box-shadow: none !important;
+  resize: none;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: inherit;
+  transition: height 0.2s ease-out;
 }
 
 .chat-input:focus {
@@ -330,18 +339,17 @@ form.flex.space-x-3 {
 /* Message form container */
 form.flex {
   margin: 0;
-  padding: 0;
+  padding: 0.5rem 1rem;
   width: 100%;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   position: relative;
-  background-color: #1a1a1a; /* Dark grey background */
+  background-color: #1a1a1a;
   border: 2px solid transparent !important;
   border-radius: 0.5rem !important;
-  overflow: hidden;
-  padding: 0.25rem 0.25rem 0.25rem 1rem; /* Space around elements */
   box-shadow: none !important;
   transition: border-color 0.2s ease-in-out !important;
+  min-height: 4rem;
 }
 
 /* Input container */
@@ -352,31 +360,27 @@ form.flex {
   padding: 0;
 }
 
-/* Chat input */
-.chat-input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background: transparent; /* Make input background transparent */
-  border: none !important;
-  color: #f3f4f6;
-  font-size: 1rem;
-  line-height: 1.5;
-  height: 3rem;
-  box-sizing: border-box;
-  margin: 0;
-  border-radius: 0;
-  appearance: none;
-  -webkit-appearance: none;
-  transition: none !important;
-  transform: none !important;
-  outline: none !important;
-  box-shadow: none !important;
+/* Ensure the send button stays aligned with the bottom of the input */
+button[type="submit"] {
+  margin-bottom: 0.25rem;
 }
 
 /* Focus state for the form container */
 form.flex:focus-within {
   border-color: #a78bfa !important;
   background-color: #1a1a1a;
+}
+
+/* Send button positioning */
+form.flex > button[type="submit"].btn-primary {
+  margin-right: 0.4rem !important;
+  margin-left: 0.5rem !important;
+  width: 3.2rem !important;
+  height: 3.0rem !important;
+  font-size: 1.25rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 /* Remove individual input focus styles since we're styling the container */
@@ -390,6 +394,7 @@ form.flex:focus-within {
   background: var(--color-primary);
   color: white;
   border: none;
+  margin-left: 0.5rem;
   border-radius: 0.5rem;
   width: 2.5rem;
   height: 2.5rem;
@@ -397,13 +402,16 @@ form.flex:focus-within {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  margin: 0 0.25rem 0 0; /* Increased right margin for better spacing */
+  margin: 0 0 0.25rem 0;
   padding: 0;
-  transition: none !important;
-  transform: none !important;
+  transition: background-color 0.2s ease;
   position: relative;
   flex-shrink: 0;
   outline: none;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-dark);
 }
 
 /* Remove all hover, focus, active states */

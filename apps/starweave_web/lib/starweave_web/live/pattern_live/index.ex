@@ -189,16 +189,15 @@ defmodule StarweaveWeb.PatternLive.Index do
           <div class="bg-darker-grey rounded-lg p-4 border border-light-grey shadow-sm">
             <form phx-submit="send_message" class="flex space-x-3">
               <div class="flex-1 relative">
-                <input
+                <textarea
                   id="message-input"
-                  type="text"
                   name="message"
-                  value=""
                   placeholder="Message STARWEAVE..."
                   class="chat-input"
                   phx-hook="AutoResize"
                   autocomplete="off"
-                />
+                  rows="1"
+                ></textarea>
               </div>
               <button
                 type="submit"
