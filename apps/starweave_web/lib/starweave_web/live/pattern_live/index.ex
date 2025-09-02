@@ -181,8 +181,8 @@ defmodule StarweaveWeb.PatternLive.Index do
               <% else %>
                 <!-- AI Message -->
                 <div class="flex items-start">
-                  <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-highlight to-pastel-purple flex-shrink-0 flex items-center justify-center text-white text-xs mr-3 mt-1 glow">
-                    <span class="font-bold" aria-hidden="true">SW</span>
+                  <div class="flex-shrink-0 mr-3 mt-1">
+                    <img src="/images/wand.png" alt="Starweave" class="w-10 h-10" />
                   </div>
                   <div class="message-bubble ai">
                     <div class="prose prose-invert max-w-none">
@@ -197,8 +197,8 @@ defmodule StarweaveWeb.PatternLive.Index do
     <!-- Typing Indicator -->
           <%= if @is_typing do %>
             <div class="flex items-start mb-4">
-              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-highlight to-pastel-purple flex-shrink-0 flex items-center justify-center text-white text-xs mr-3 mt-1 glow">
-                <span class="font-bold" aria-hidden="true">SW</span>
+              <div class="flex-shrink-0 mr-3 mt-1">
+                <img src="/images/wand.png" alt="Starweave" class="w-8 h-8" />
               </div>
               <div class="bg-dark-grey rounded-lg p-3">
                 <div class="typing-indicator">
