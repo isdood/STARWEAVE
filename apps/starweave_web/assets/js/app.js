@@ -151,3 +151,6 @@ try {
 } catch (e) {
   console.error("Error wiring Phoenix Channels:", e)
 }
+
+// Import and initialize mobile keyboard handling
+import "../../../starweadev/starweave_web/assets/js/mobile-keyboard.js"

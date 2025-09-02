@@ -4,7 +4,7 @@ defmodule StarweaveWeb.PatternLive.Index do
   """
   use StarweaveWeb, :live_view
   require Logger
-  
+
   alias StarweaveLLM.ContextManager
   import StarweaveWeb.MarkdownHelper, only: [render_markdown: 1]
 
@@ -29,7 +29,7 @@ defmodule StarweaveWeb.PatternLive.Index do
         "Welcome to STARWEAVE! I can help you recognize and learn patterns. Try sending me a message or a pattern to get started.",
       timestamp: DateTime.utc_now()
     }
-    
+
     # Initialize context manager for conversation history
     context_manager = ContextManager.new()
 
@@ -84,7 +84,7 @@ defmodule StarweaveWeb.PatternLive.Index do
   def handle_info({:llm_chat, message, context_manager}, socket) do
     # Use chat_with_context to maintain conversation history and memory
     case StarweaveLlm.OllamaClient.chat_with_context(
-      message, 
+      message,
       context_manager,
       model: "llama3.1",  # or get from config
       use_memory: true
@@ -98,9 +98,9 @@ defmodule StarweaveWeb.PatternLive.Index do
         }
 
         send(self(), {:typing_stopped})
-        
-        {:noreply, 
-         socket 
+
+        {:noreply,
+         socket
          |> assign(messages: socket.assigns.messages ++ [ai_message])
          |> assign(:context_manager, updated_context)}
 
@@ -112,7 +112,7 @@ defmodule StarweaveWeb.PatternLive.Index do
           text: "I'm having trouble connecting to my language model right now. This might be due to system resource limitations. You can still interact with me for pattern recognition features!",
           timestamp: DateTime.utc_now()
         }
-        
+
         send(self(), {:typing_stopped})
         {:noreply, assign(socket, messages: socket.assigns.messages ++ [error_message])}
     end
@@ -153,7 +153,7 @@ defmodule StarweaveWeb.PatternLive.Index do
           </div>
         </div>
       </header>
-      
+
     <!-- Main Content -->
       <main class="flex-1 container mx-auto px-4 py-6 flex flex-col">
         <!-- Welcome Message -->
@@ -165,7 +165,7 @@ defmodule StarweaveWeb.PatternLive.Index do
             </p>
           </div>
         </div>
-        
+
     <!-- Chat Container -->
         <div class="flex-1 flex flex-col max-w-3xl w-full mx-auto">
           <!-- Messages -->
@@ -193,7 +193,7 @@ defmodule StarweaveWeb.PatternLive.Index do
               <% end %>
             <% end %>
           </div>
-          
+
     <!-- Typing Indicator -->
           <%= if @is_typing do %>
             <div class="flex items-start mb-4">
@@ -209,35 +209,45 @@ defmodule StarweaveWeb.PatternLive.Index do
               </div>
             </div>
           <% end %>
-          
+
     <!-- Input Area -->
-          <div class="bg-darker-grey rounded-lg p-4 border border-light-grey shadow-sm">
-            <form phx-submit="send_message" class="flex space-x-3">
-              <div class="flex-1 relative">
-                <textarea
-                  id="message-input"
-                  name="message"
-                  placeholder="Message STARWEAVE..."
-                  class="chat-input"
-                  phx-hook="AutoResize"
-                  autocomplete="off"
-                  rows="1"
-                ></textarea>
-              </div>
-              <button
-                type="submit"
-                class="btn-primary w-12 h-12"
-              >
-                <span aria-hidden="true">➤</span>
-              </button>
-            </form>
-            <p class="text-xs text-gray-400 mt-2 text-center">
-              STARWEAVE may produce inaccurate information about patterns or concepts.
-            </p>
+          <div class="fixed bottom-0 left-0 right-0 bg-darker-grey border-t border-light-grey">
+            <!-- Message Input Form -->
+            <div class="max-w-3xl mx-auto w-full px-4 py-2">
+              <form phx-submit="send_message" class="w-full">
+                <div class="chat-input-container">
+                  <textarea
+                    id="message-input"
+                    name="message"
+                    placeholder="Message STARWEAVE..."
+                    class="bg-darker-grey border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent chat-input"
+                    phx-hook="AutoResize"
+                    autocomplete="off"
+                    rows="1"
+                  ></textarea>
+                  <button
+                    type="submit"
+                    class="send-button"
+                    aria-label="Send message"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Disclaimer Container -->
+            <div class="max-w-3xl mx-auto w-full px-2 pb-1">
+              <p class="text-xs text-gray-400 text-center">
+                STARWEAVE may produce inaccurate information about patterns or concepts.
+              </p>
+            </div>
           </div>
         </div>
       </main>
-      
+
     <!-- Footer -->
       <footer class="hidden bg-darker-grey py-3 px-6 border-t border-light-grey">
         <div class="container mx-auto text-center text-gray-400 text-sm">
