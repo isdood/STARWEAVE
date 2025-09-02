@@ -46,8 +46,7 @@ cd ~/STARWEAVE/apps/starweave_web && OLLAMA_MODEL=gpt-oss:20b mix phx.server
 To start the Python gRPC server, run the following command:
 cd ~/STARWEAVE/services/python && source venv/bin/activate && python -m server.pattern_server
 
-Ensure Ollama is running and accessible at http://localhost:11434:
-ollama run llama3.1
+Ensure Ollama is running and accessible at http://localhost:11434
 
 ## Notes
 - You may need to use a different model depending on your setup. I'm using gpt-oss:20b on a Sapphire 7900 XTX GPU, 64GB RAM & a 9950X CPU. Responses are near-instant with this setup.
