@@ -35,6 +35,3 @@ echo "  cd services/python && source venv/bin/activate"
 echo "  python -m server.pattern_server"
 echo ""
 echo "The server will start in the foreground. Use Ctrl+C to stop it when needed."
-
-# Make the script executable
-chmod +x "$(dirname "$0")/gRPC-init.sh"
