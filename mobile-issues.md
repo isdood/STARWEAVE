@@ -1,0 +1,1 @@
+1. Upon leaving the mobile web app for any amount of time, the app reloads when returning, removing any previous messages - This is due to the app losing connection to the server & reconnecting, resulting in a reload.

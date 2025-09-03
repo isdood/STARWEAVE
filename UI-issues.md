@@ -1,1 +1,0 @@
-1. Issues with the mobile implementation - the right side of the screen cuts off, for both the input and the message bubbles.
