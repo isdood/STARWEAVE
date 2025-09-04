@@ -76,7 +76,10 @@ PORT="${PORT:-$DEFAULT_PORT}"
 ENV="${ENV:-$DEFAULT_ENV}"
 
 # Get the local IP address (works on both Linux and macOS)
-if command -v ip &> /dev/null; then
+if [ -n "$NODE_IP" ]; then
+    # Use explicitly provided IP address
+    LOCAL_IP="$NODE_IP"
+elif command -v ip &> /dev/null; then
     # Linux
     LOCAL_IP=$(ip route get 1 | awk '{print $7}' | head -1)
 elif command -v ifconfig &> /dev/null; then
@@ -124,8 +127,13 @@ echo "$COOKIE" > "$COOKIE_FILE"
 chmod 600 "$COOKIE_FILE" 2>/dev/null || true
 
 # Export the cookie file location for Erlang
-export ERL_EPMD_ADDRESS="$LOCAL_IP"
+export ERL_EPMD_ADDRESS="0.0.0.0"  # Listen on all interfaces
 export ERL_EPMD_PORT="4369"
+
+# Set node name and cookie for distribution
+export NODE_NAME="$FULL_NODE_NAME"
+export RELEASE_DISTRIBUTION=name
+export RELEASE_NODE="$NODE_NAME"
 
 # Start the Phoenix server with distributed node configuration
 echo -e "${BLUE}🚀 Starting STARWEAVE Main Node...${NC}"
@@ -152,11 +160,16 @@ echo -e "  Port: ${GREEN}${PORT}${NC}"
 echo -e "  Environment: ${GREEN}${ENV}${NC}"
 echo ""
 
+echo -e "${BLUE}Starting node with full name: ${GREEN}$FULL_NODE_NAME${NC}"
+echo -e "${BLUE}Using cookie: ${GREEN}$COOKIE${NC}"
+echo -e "${BLUE}Listening on port: ${GREEN}4500${NC}"
+
 elixir \
   --name "$FULL_NODE_NAME" \
   --cookie "$COOKIE" \
-  --erl "-kernel inet_dist_listen_min 9100" \
-  --erl "-kernel inet_dist_listen_max 9199" \
+  --erl "-kernel inet_dist_listen_min 4500 inet_dist_listen_max 4500" \
+  --erl "-kernel inet_parse:hostname()
+         inet_parse:ntoa({0,0,0,0})" \
   -S mix phx.server
 
 # If the server exits, show a message

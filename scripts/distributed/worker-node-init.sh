@@ -9,7 +9,7 @@ set -e
 DEFAULT_NODE_NAME="worker"
 DEFAULT_MAIN_NODE="main@127.0.0.1"
 DEFAULT_COOKIE="starweave-cookie"
-DEFAULT_DIST_PORT=9100
+DEFAULT_DIST_PORT=4500
 DEFAULT_ENV="dev"
 
 # Colors for output
