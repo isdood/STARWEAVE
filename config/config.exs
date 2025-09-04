@@ -19,9 +19,21 @@ import Config
 config :starweave_web,
   generators: [timestamp_type: :utc_datetime]
 
+# Configure esbuild
+config :esbuild,
+  version: "0.17.11",
+  default: [
+    args: ~w(js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
+    cd: Path.expand("../apps/starweave_web/assets", __DIR__),
+    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+  ]
+
 # Configures the endpoint
 config :starweave_web, StarweaveWeb.Endpoint,
-  http: [port: 4000],
+  http: [
+    port: String.to_integer(System.get_env("PORT") || "4500"),
+    ip: {0, 0, 0, 0}
+  ],
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [

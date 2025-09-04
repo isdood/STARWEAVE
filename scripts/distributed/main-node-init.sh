@@ -8,7 +8,7 @@ set -e
 # Default values
 DEFAULT_NODE_NAME="main"
 DEFAULT_COOKIE="starweave-cookie"
-DEFAULT_PORT=4500
+DEFAULT_PORT=4545  # Changed from 4500 to 4545 to avoid conflicts
 DEFAULT_ENV="dev"
 
 # Colors for output
