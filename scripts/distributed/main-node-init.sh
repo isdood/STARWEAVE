@@ -150,8 +150,9 @@ echo ""
 export MIX_ENV="$ENV"
 export PORT="$PORT"
 
-# Set the cookie file path for Erlang
-export ERL_FLAGS="-setcookie \"${COOKIE}\" -kernel inet_dist_listen_min $PORT inet_dist_listen_max $((PORT + 10))"
+# Configure EPMD for distributed Erlang
+export ERL_EPMD_ADDRESS="0.0.0.0"
+export ERL_FLAGS="-setcookie ${COOKIE} -kernel inet_dist_listen_min ${PORT} inet_dist_listen_max $((PORT + 10)) -kernel inet_dist_use_interface '{0,0,0,0}'"
 
 # Start the Phoenix server with the distributed node name
 cd "$PROJECT_ROOT/apps/starweave_web" || exit 1
