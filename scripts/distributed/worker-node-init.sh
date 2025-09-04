@@ -1,21 +1,22 @@
 #!/bin/bash
 
 # Worker Node Initialization Script for STARWEAVE
-# This script helps set up and start a worker node that connects to the main STARWEAVE cluster.
+# Simplified version that matches the main node implementation
 
 set -e
 
 # Default values
 DEFAULT_NODE_NAME="worker"
-DEFAULT_MAIN_NODE="main@$HOSTNAME"
+DEFAULT_MAIN_NODE="main@192.168.0.47"  # Hardcoded for testing
 DEFAULT_COOKIE="starweave-cookie"
-DEFAULT_DIST_PORT=4545
+DEFAULT_DIST_PORT=9100  # Different default port than main node
 DEFAULT_ENV="dev"
 
 # Colors for output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Get the directory where the script is located
@@ -38,6 +39,75 @@ show_help() {
     echo ""
     echo "Example:"
     echo "  $0 --node-name worker1 --main-node main@192.168.1.100 --cookie my-secret-cookie --port 9100"
+}
+
+# Function to get local IP
+get_local_ip() {
+    if [ -n "$NODE_IP" ]; then
+        echo "$NODE_IP"
+    elif command -v ip &> /dev/null; then
+        ip route get 1 | awk '{print $7}' | head -1
+    elif command -v ifconfig &> /dev/null; then
+        ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | head -1
+    else
+        echo "127.0.0.1"
+    fi
+}
+
+# Function to check EPMD
+check_epmd() {
+    if ! command -v epmd &> /dev/null; then
+        echo -e "${RED}Error: epmd (Erlang Port Mapper Daemon) not found in PATH${NC}"
+        exit 1
+    fi
+    
+    # Check if EPMD is already running
+    if pgrep -x "epmd" > /dev/null; then
+        echo -e "${YELLOW}Warning: EPMD is already running${NC}"
+        return 0
+    fi
+    
+    # Start EPMD if not running
+    echo -e "${BLUE}Starting EPMD...${NC}"
+    if ! epmd -daemon; then
+        echo -e "${RED}Failed to start EPMD${NC}"
+        exit 1
+    fi
+    
+    # Verify EPMD is running
+    if ! epmd -names &> /dev/null; then
+        echo -e "${RED}EPMD failed to start properly${NC}"
+        exit 1
+    fi
+    
+    echo -e "${GREEN}EPMD started successfully${NC}"
+}
+
+# Function to set up Erlang cookie
+setup_cookie() {
+    local cookie="$1"
+    local cookie_file="$HOME/.erlang.cookie"
+    
+    # Create cookie file if it doesn't exist
+    if [ ! -f "$cookie_file" ]; then
+        echo "$cookie" > "$cookie_file"
+        chmod 600 "$cookie_file"
+        echo -e "${GREEN}Created Erlang cookie file at $cookie_file${NC}"
+    else
+        local current_cookie=$(cat "$cookie_file" 2>/dev/null || echo "")
+        if [ "$current_cookie" != "$cookie" ]; then
+            echo -e "${YELLOW}Warning: Existing Erlang cookie in $cookie_file does not match specified cookie${NC}"
+            echo -e "  Current: $current_cookie"
+            echo -e "  Specified: $cookie"
+            read -p "  Do you want to update the cookie? [y/N] " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                echo "$cookie" > "$cookie_file"
+                chmod 600 "$cookie_file"
+                echo -e "${GREEN}Updated Erlang cookie${NC}"
+            fi
+        fi
+    fi
 }
 
 # Parse command line arguments
@@ -82,121 +152,85 @@ COOKIE="${COOKIE:-$DEFAULT_COOKIE}"
 DIST_PORT="${DIST_PORT:-$DEFAULT_DIST_PORT}"
 ENV="${ENV:-$DEFAULT_ENV}"
 
-# Use hostname for the node name
+# Get hostname and IP
 HOSTNAME=$(hostname -s)
+LOCAL_IP=$(get_local_ip)
 FULL_NODE_NAME="${NODE_NAME}@${HOSTNAME}"
 
-# Get local IP for display purposes
-if [ -n "$NODE_IP" ]; then
-    LOCAL_IP="$NODE_IP"
-elif command -v ip &> /dev/null; then
-    LOCAL_IP=$(ip route get 1 | awk '{print $7}' | head -1)
-elif command -v ifconfig &> /dev/null; then
-    LOCAL_IP=$(ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
-else
-    LOCAL_IP="127.0.0.1"
-fi
+# Extract main node hostname
+MAIN_NODE_HOST=${MAIN_NODE#*@}
 
 # Display configuration
 echo -e "${BLUE}⚡ STARWEAVE Worker Node Configuration ⚡${NC}"
 echo -e "${YELLOW}Node Name:${NC} $FULL_NODE_NAME"
 echo -e "${YELLOW}Main Node:${NC} $MAIN_NODE"
+echo -e "${YELLOW}IP Address:${NC} $LOCAL_IP"
 echo -e "${YELLOW}Cookie:${NC} $COOKIE"
 echo -e "${YELLOW}Distribution Port:${NC} $DIST_PORT"
 echo -e "${YELLOW}Environment:${NC} $ENV"
 echo -e "${YELLOW}Project Root:${NC} $PROJECT_ROOT"
-echo ""
+echo
 
-# Check if Elixir is installed
-if ! command -v elixir &> /dev/null; then
-    echo -e "${YELLOW}Elixir is not installed. Please install Elixir first.${NC}"
-    exit 1
-fi
-
-# Handle Erlang cookie with proper permissions
-echo -e "${BLUE}Setting Erlang cookie...${NC}"
-COOKIE_FILE="$HOME/.erlang.cookie"
-
-# Check if we can write to the cookie file
-if [ -f "$COOKIE_FILE" ] && [ ! -w "$COOKIE_FILE" ]; then
-    echo -e "${YELLOW}Warning: Cannot write to $COOKIE_FILE. Using alternative location.${NC}"
-    COOKIE_FILE="/tmp/erlang.cookie.$UID"
-    echo -e "${YELLOW}Using temporary cookie file at: $COOKIE_FILE${NC}"
-fi
-
-# Create or update the cookie file
-if [ -f "$COOKIE_FILE" ]; then
-    echo -e "${YELLOW}Warning: $COOKIE_FILE already exists. Backing it up to ${COOKIE_FILE}.bak${NC}"
-    cp -f "$COOKIE_FILE" "${COOKIE_FILE}.bak" 2>/dev/null || true
-fi
-
-echo "$COOKIE" > "$COOKIE_FILE"
-chmod 600 "$COOKIE_FILE" 2>/dev/null || true
-
-# Extract hostname from main node
-MAIN_NODE_HOST=${MAIN_NODE#*@}
-
-# Check if we can resolve the main node's hostname
-if ! getent hosts "$MAIN_NODE_HOST" >/dev/null; then
-    echo -e "${YELLOW}Warning: Cannot resolve hostname '$MAIN_NODE_HOST'. Using IP address.${NC}"
-    # Try to get IP from the main node if it's a short name
-    if [[ ! "$MAIN_NODE_HOST" == *.* ]]; then
-        MAIN_NODE_HOST=$(getent hosts "${MAIN_NODE_HOST}" | awk '{ print $1 }' | head -1)
-        if [ -z "$MAIN_NODE_HOST" ]; then
-            echo -e "${YELLOW}Error: Could not resolve main node address${NC}"
-            exit 1
-        fi
-        MAIN_NODE="${MAIN_NODE%%@*}@${MAIN_NODE_HOST}"
+# Check for required commands
+for cmd in elixir mix epmd; do
+    if ! command -v $cmd &> /dev/null; then
+        echo -e "${RED}Error: $cmd is not installed or not in PATH${NC}"
+        exit 1
     fi
-fi
+done
 
-# Check if we can connect to the main node's EPMD
+# Set up Erlang cookie
+setup_cookie "$COOKIE"
+
+# Check and start EPMD
+check_epmd
+
+# Check connection to main node
 echo -e "${BLUE}Checking connection to main node at ${MAIN_NODE}...${NC}"
 if ! nc -z -w 5 "$MAIN_NODE_HOST" 4369; then
     echo -e "${YELLOW}Warning: Cannot connect to EPMD on $MAIN_NODE_HOST:4369${NC}"
     echo -e "${YELLOW}Please ensure the main node is running and accessible.${NC}"
-    echo -e "${YELLOW}If the main node is behind a firewall, make sure port 4369 (EPMD) and ${DIST_PORT} (distribution) are open.${NC}"
+    echo -e "${YELLOW}If the main node is behind a firewall, make sure port 4369 (EPMD) is open.${NC}"
     exit 1
 fi
 
-# Export the cookie file location for Erlang
-export ERL_EPMD_ADDRESS="0.0.0.0"
-export ERL_EPMD_PORT=4369
-export ERL_DIST_PORT=$DIST_PORT
-export ERL_FLAGS="-setcookie \"${COOKIE}\" -start_epmd false -epmd_module Elixir.IEx.EPMD.Client -proto_dist Elixir.IEx.Distribution.Client.ERL_EPMD_DIST -kernel inet_dist_listen_min $DIST_PORT inet_dist_listen_max $((DIST_PORT + 10))"
-
-# Start the worker node
-echo -e "${BLUE}🚀 Starting STARWEAVE Worker Node...${NC}"
-echo -e "${YELLOW}Node Name:${NC} $FULL_NODE_NAME"
-echo -e "${YELLOW}Connecting to Main Node:${NC} $MAIN_NODE"
-echo -e "${YELLOW}Using cookie file:${NC} $COOKIE_FILE"
-echo -e "${YELLOW}Distribution Port:${NC} $DIST_PORT"
-echo ""
-
 # Export environment variables
 export MIX_ENV="$ENV"
-export ERL_FLAGS="-setcookie \"${COOKIE}\""
 
-# Start the worker node
-echo -e "${BLUE}Starting worker node with:${NC}"
-echo -e "  Node name: ${GREEN}${FULL_NODE_NAME}${NC}"
-echo -e "  Main node: ${GREEN}${MAIN_NODE}${NC}"
-echo -e "  Cookie: ${GREEN}${COOKIE}${NC}"
-echo -e "  Environment: ${GREEN}${ENV}${NC}"
-echo -e "  Distribution port: ${GREEN}${DIST_PORT}${NC}"
-echo ""
+# Set Erlang distribution settings
+export ERL_EPMD_ADDRESS="0.0.0.0"
+export ERL_EPMD_PORT="4369"
 
-# Change to the worker app directory
-cd "$PROJECT_ROOT/apps/starweave_core" || exit 1
+# Generate ERL_FLAGS with proper escaping for distribution
+export ERL_FLAGS="-setcookie \"$COOKIE\""
+ERL_FLAGS+=" -kernel inet_dist_listen_min $DIST_PORT"
+ERL_FLAGS+=" -kernel inet_dist_listen_max $((DIST_PORT + 10))"
+ERL_FLAGS+=" -kernel inet_dist_use_interface \"{0,0,0,0}\""
+ERL_FLAGS+=" -sname \"$NODE_NAME\""
+ERL_FLAGS+=" -start_epmd false"  # We manage EPMD ourselves
 
-# Start the worker node
+export ERL_FLAGS
+
+# Change to the web app directory
 cd "$PROJECT_ROOT/apps/starweave_web" || exit 1
 
-# Start the server with connection to main node
-echo -e "${BLUE}Starting worker node...${NC}"
+# Display startup information
+echo -e "${BLUE}🚀 Starting STARWEAVE Worker Node...${NC}"
+echo -e "${YELLOW}Node:${NC} $FULL_NODE_NAME"
+echo -e "${YELLOW}Connecting to Main Node:${NC} $MAIN_NODE"
+echo -e "${YELLOW}EPMD:${NC} Running on port 4369"
+echo -e "${YELLOW}Distribution Ports:${NC} $DIST_PORT-$((DIST_PORT + 10))"
+echo -e "${YELLOW}To connect to this node:${NC}"
+echo -e "  iex --sname console@${HOSTNAME} --cookie ${COOKIE}"
+echo -e "${YELLOW}To connect from another node:${NC}"
+echo -e "  Node.connect(\"${NODE_NAME}@${HOSTNAME}\")"
+echo
+
+# Start the worker node
+echo -e "${BLUE}Starting worker node and connecting to main node...${NC}"
 
 exec iex \
   --sname $NODE_NAME \
   --cookie "$COOKIE" \
-  --erl "-kernel inet_dist_listen_min $DIST_PORT inet_dist_listen_max $((DIST_PORT + 10))" \
+  --erl "-start_epmd false -epmd_module Elixir.IEx.EPMD.Client -proto_dist Elixir.IEx.Distribution.Client.ERL_EPMD_DIST" \
   -S mix phx.server
