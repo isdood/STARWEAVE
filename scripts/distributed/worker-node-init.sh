@@ -117,6 +117,13 @@ fi
 echo -e "${BLUE}Setting Erlang cookie...${NC}"
 COOKIE_FILE="$HOME/.erlang.cookie"
 
+# Check if we can write to the cookie file
+if [ -f "$COOKIE_FILE" ] && [ ! -w "$COOKIE_FILE" ]; then
+    echo -e "${YELLOW}Warning: Cannot write to $COOKIE_FILE. Using alternative location.${NC}"
+    COOKIE_FILE="/tmp/erlang.cookie.$UID"
+    echo -e "${YELLOW}Using temporary cookie file at: $COOKIE_FILE${NC}"
+fi
+
 # Create or update the cookie file
 if [ -f "$COOKIE_FILE" ]; then
     echo -e "${YELLOW}Warning: $COOKIE_FILE already exists. Backing it up to ${COOKIE_FILE}.bak${NC}"
@@ -126,9 +133,37 @@ fi
 echo "$COOKIE" > "$COOKIE_FILE"
 chmod 600 "$COOKIE_FILE" 2>/dev/null || true
 
+# Extract hostname from main node
+MAIN_NODE_HOST=${MAIN_NODE#*@}
+
+# Check if we can resolve the main node's hostname
+if ! getent hosts "$MAIN_NODE_HOST" >/dev/null; then
+    echo -e "${YELLOW}Warning: Cannot resolve hostname '$MAIN_NODE_HOST'. Using IP address.${NC}"
+    # Try to get IP from the main node if it's a short name
+    if [[ ! "$MAIN_NODE_HOST" == *.* ]]; then
+        MAIN_NODE_HOST=$(getent hosts "${MAIN_NODE_HOST}" | awk '{ print $1 }' | head -1)
+        if [ -z "$MAIN_NODE_HOST" ]; then
+            echo -e "${YELLOW}Error: Could not resolve main node address${NC}"
+            exit 1
+        fi
+        MAIN_NODE="${MAIN_NODE%%@*}@${MAIN_NODE_HOST}"
+    fi
+fi
+
+# Check if we can connect to the main node's EPMD
+echo -e "${BLUE}Checking connection to main node at ${MAIN_NODE}...${NC}"
+if ! nc -z -w 5 "$MAIN_NODE_HOST" 4369; then
+    echo -e "${YELLOW}Warning: Cannot connect to EPMD on $MAIN_NODE_HOST:4369${NC}"
+    echo -e "${YELLOW}Please ensure the main node is running and accessible.${NC}"
+    echo -e "${YELLOW}If the main node is behind a firewall, make sure port 4369 (EPMD) and ${DIST_PORT} (distribution) are open.${NC}"
+    exit 1
+fi
+
 # Export the cookie file location for Erlang
+export ERL_EPMD_ADDRESS="0.0.0.0"
 export ERL_EPMD_PORT=4369
 export ERL_DIST_PORT=$DIST_PORT
+export ERL_FLAGS="-setcookie \"${COOKIE}\" -start_epmd false -epmd_module Elixir.IEx.EPMD.Client -proto_dist Elixir.IEx.Distribution.Client.ERL_EPMD_DIST -kernel inet_dist_listen_min $DIST_PORT inet_dist_listen_max $((DIST_PORT + 10))"
 
 # Start the worker node
 echo -e "${BLUE}🚀 Starting STARWEAVE Worker Node...${NC}"
@@ -157,7 +192,7 @@ cd "$PROJECT_ROOT/apps/starweave_core" || exit 1
 # Start the worker node
 cd "$PROJECT_ROOT/apps/starweave_web" || exit 1
 
-# Start the node with proper distribution settings
+# Start the server with connection to main node
 echo -e "${BLUE}Starting worker node...${NC}"
 
 exec iex \

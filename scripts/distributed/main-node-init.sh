@@ -129,6 +129,10 @@ chmod 600 "$COOKIE_FILE" 2>/dev/null || true
 export ERL_EPMD_ADDRESS="0.0.0.0"  # Listen on all interfaces
 export ERL_EPMD_PORT="4369"
 
+# Make sure EPMD is running with the right options
+epmd -kill 2>/dev/null || true
+EPMD_PORT=4369 epmd -daemon
+
 # Set node name and cookie for distribution
 export NODE_NAME="$FULL_NODE_NAME"
 export RELEASE_DISTRIBUTION=name
@@ -147,7 +151,7 @@ export MIX_ENV="$ENV"
 export PORT="$PORT"
 
 # Set the cookie file path for Erlang
-export ERL_FLAGS="-setcookie \"${COOKIE}\""
+export ERL_FLAGS="-setcookie \"${COOKIE}\" -kernel inet_dist_listen_min $PORT inet_dist_listen_max $((PORT + 10))"
 
 # Start the Phoenix server with the distributed node name
 cd "$PROJECT_ROOT/apps/starweave_web" || exit 1
@@ -176,7 +180,14 @@ echo "Hostname: $HOSTNAME"
 echo "IP Address: $LOCAL_IP"
 
 # Start the Phoenix server directly
-echo -e "${BLUE}Starting Phoenix server...${NC}"
+echo -e "${BLUE}Starting Phoenix server with distribution...${NC}"
+echo -e "${YELLOW}Node will be available as:${NC} $FULL_NODE_NAME"
+echo -e "${YELLOW}EPMD is running on:${NC} ${LOCAL_IP}:4369"
+echo -e "${YELLOW}Distribution port range:${NC} ${PORT}-$((PORT + 10))"
+
+# Make sure EPMD is running with the right options
+epmd -kill 2>/dev/null || true
+EPMD_PORT=4369 epmd -daemon
 
 # Change to the project root to ensure proper path resolution
 cd "$PROJECT_ROOT"
