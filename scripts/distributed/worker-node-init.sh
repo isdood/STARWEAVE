@@ -163,7 +163,8 @@ elixir \
   -e "
     # Connect to the main node
     IO.puts(\"⏳ Connecting to main node: $MAIN_NODE\")
-    case Node.connect(\"$MAIN_NODE\") do
+    main_node = String.to_atom(\"$MAIN_NODE\")
+    case Node.connect(main_node) do
       true ->
         IO.puts(\"✅ Successfully connected to $MAIN_NODE\")
         :ok = :net_kernel.monitor_nodes(true, node_type: :all)
