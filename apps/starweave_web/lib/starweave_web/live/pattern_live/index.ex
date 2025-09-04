@@ -11,7 +11,9 @@ defmodule StarweaveWeb.PatternLive.Index do
   import StarweaveWeb.MarkdownHelper, only: [render_markdown: 1]
 
   @pattern_topic "pattern:lobby"
-  @llm_model System.get_env("OLLAMA_MODEL") || "llama3.1"
+  @default_model "gpt-oss:20b"
+
+  defp llm_model, do: System.get_env("OLLAMA_MODEL", @default_model)
 
   @impl true
   def mount(_params, _session, socket) do
@@ -80,7 +82,7 @@ defmodule StarweaveWeb.PatternLive.Index do
     case StarweaveLlm.OllamaClient.chat_with_context(
            message,
            context_manager,
-           model: @llm_model,
+           model: llm_model(),
            use_memory: true
          ) do
       {:ok, reply, updated_context} ->

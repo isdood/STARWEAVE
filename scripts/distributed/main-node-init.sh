@@ -10,6 +10,7 @@ DEFAULT_NODE_NAME="main"
 DEFAULT_COOKIE="starweave-cookie"
 DEFAULT_PORT=4545
 DEFAULT_ENV="dev"
+DEFAULT_MODEL="gpt-oss:20b"  # Default Ollama model
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -33,6 +34,7 @@ show_help() {
     echo "  -c, --cookie COOKIE    Set the Erlang cookie (default: $DEFAULT_COOKIE)"
     echo "  -p, --port PORT        Set the HTTP port (default: $DEFAULT_PORT)"
     echo "  -e, --env ENV          Set the environment (dev/prod, default: $DEFAULT_ENV)"
+    echo "  -m, --model MODEL      Set the Ollama model (default: $DEFAULT_MODEL)"
     echo "  -h, --help             Show this help message"
     echo ""
     echo "Example:"
@@ -127,6 +129,10 @@ while [[ $# -gt 0 ]]; do
             ENV="$2"
             shift 2
             ;;
+        -m|--model)
+            MODEL="$2"
+            shift 2
+            ;;
         -h|--help)
             show_help
             exit 0
@@ -144,6 +150,7 @@ NODE_NAME="${NODE_NAME:-$DEFAULT_NODE_NAME}"
 COOKIE="${COOKIE:-$DEFAULT_COOKIE}"
 PORT="${PORT:-$DEFAULT_PORT}"
 ENV="${ENV:-$DEFAULT_ENV}"
+MODEL="${MODEL:-$DEFAULT_MODEL}"
 
 # Get hostname and IP
 HOSTNAME=$(hostname -s)
@@ -204,13 +211,14 @@ echo -e "${YELLOW}Node:${NC} $FULL_NODE_NAME"
 echo -e "${YELLOW}EPMD:${NC} Running on port 4369"
 echo -e "${YELLOW}Distribution Ports:${NC} $dist_port-$((dist_port + 10))"
 echo -e "${YELLOW}Web Interface:${NC} http://${LOCAL_IP}:${PORT}"
+echo -e "${YELLOW}Ollama Model:${NC} $MODEL"
 echo -e "${YELLOW}To connect to this node:${NC}"
 echo -e "  iex --sname console@${HOSTNAME} --cookie ${COOKIE}"
 echo -e "${YELLOW}To connect from another node:${NC}"
 echo -e "  Node.connect(\"${NODE_NAME}@${HOSTNAME}\")"
 echo
 
-# Start the Phoenix server
-echo -e "${BLUE}Starting Phoenix server...${NC}"
+# Start the Phoenix server with the specified model
+echo -e "${BLUE}Starting Phoenix server with model: ${MODEL}...${NC}"
 
-exec mix phx.server
+exec env OLLAMA_MODEL="$MODEL" mix phx.server
