@@ -11,7 +11,7 @@ defmodule StarweaveWeb.PatternLive.Index do
   import StarweaveWeb.MarkdownHelper, only: [render_markdown: 1]
 
   @pattern_topic "pattern:lobby"
-  @llm_model "llama3.1"
+  @llm_model System.get_env("OLLAMA_MODEL") || "llama3.1"
 
   @impl true
   def mount(_params, _session, socket) do
