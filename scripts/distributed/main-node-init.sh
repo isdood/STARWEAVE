@@ -168,8 +168,6 @@ elixir \
   --name "$FULL_NODE_NAME" \
   --cookie "$COOKIE" \
   --erl "-kernel inet_dist_listen_min 4500 inet_dist_listen_max 4500" \
-  --erl "-kernel inet_parse:hostname()
-         inet_parse:ntoa({0,0,0,0})" \
   -S mix phx.server
 
 # If the server exits, show a message
