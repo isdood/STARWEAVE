@@ -44,9 +44,6 @@ defmodule StarweaveWeb.MixProject do
 
   defp deps do
     [
-      # Dependencies
-      {:starweave_core, in_umbrella: true},
-      
       # Phoenix
       {:phoenix, "~> 1.8.0"},
       {:phoenix_ecto, "~> 4.6"},
@@ -55,7 +52,7 @@ defmodule StarweaveWeb.MixProject do
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.1.0"},
       {:phoenix_live_dashboard, "~> 0.8.3"},
-      {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
+      {:esbuild, "~> 0.8", runtime: Mix.env() == :dev, override: true},
 
       # Core dependencies
       {:jason, "~> 1.4"},
@@ -78,7 +75,6 @@ defmodule StarweaveWeb.MixProject do
       {:floki, ">= 0.30.0", only: :test},
 
       # Umbrella apps
-      {:starweave_core, in_umbrella: true},
       {:starweave_llm, in_umbrella: true},
 
       # Testing
