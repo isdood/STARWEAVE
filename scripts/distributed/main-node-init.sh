@@ -162,12 +162,12 @@ echo ""
 
 echo -e "${BLUE}Starting node with full name: ${GREEN}$FULL_NODE_NAME${NC}"
 echo -e "${BLUE}Using cookie: ${GREEN}$COOKIE${NC}"
-echo -e "${BLUE}Listening on port: ${GREEN}4500${NC}"
+echo -e "${BLUE}Listening on port: ${GREEN}4545${NC}"
 
 elixir \
   --name "$FULL_NODE_NAME" \
   --cookie "$COOKIE" \
-  --erl "-kernel inet_dist_listen_min 4500 inet_dist_listen_max 4500" \
+  --erl "-kernel inet_dist_listen_min 4545 inet_dist_listen_max 4545" \
   -S mix phx.server
 
 # If the server exits, show a message
