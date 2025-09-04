@@ -7,9 +7,9 @@ set -e
 
 # Default values
 DEFAULT_NODE_NAME="worker"
-DEFAULT_MAIN_NODE="main@127.0.0.1"
+DEFAULT_MAIN_NODE="main@$HOSTNAME"
 DEFAULT_COOKIE="starweave-cookie"
-DEFAULT_DIST_PORT=4500
+DEFAULT_DIST_PORT=4545
 DEFAULT_ENV="dev"
 
 # Colors for output
@@ -82,19 +82,20 @@ COOKIE="${COOKIE:-$DEFAULT_COOKIE}"
 DIST_PORT="${DIST_PORT:-$DEFAULT_DIST_PORT}"
 ENV="${ENV:-$DEFAULT_ENV}"
 
-# Get the local IP address (works on both Linux and macOS)
-if command -v ip &> /dev/null; then
-    # Linux
+# Use hostname for the node name
+HOSTNAME=$(hostname -s)
+FULL_NODE_NAME="${NODE_NAME}@${HOSTNAME}"
+
+# Get local IP for display purposes
+if [ -n "$NODE_IP" ]; then
+    LOCAL_IP="$NODE_IP"
+elif command -v ip &> /dev/null; then
     LOCAL_IP=$(ip route get 1 | awk '{print $7}' | head -1)
 elif command -v ifconfig &> /dev/null; then
-    # macOS
     LOCAL_IP=$(ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
 else
-    echo -e "${YELLOW}Warning: Could not determine local IP address, using localhost${NC}"
     LOCAL_IP="127.0.0.1"
 fi
-
-FULL_NODE_NAME="${NODE_NAME}@${LOCAL_IP}"
 
 # Display configuration
 echo -e "${BLUE}⚡ STARWEAVE Worker Node Configuration ⚡${NC}"
@@ -114,7 +115,7 @@ fi
 
 # Handle Erlang cookie with proper permissions
 echo -e "${BLUE}Setting Erlang cookie...${NC}"
-COOKIE_FILE="/tmp/erlang.cookie.$UID"
+COOKIE_FILE="$HOME/.erlang.cookie"
 
 # Create or update the cookie file
 if [ -f "$COOKIE_FILE" ]; then
@@ -126,8 +127,8 @@ echo "$COOKIE" > "$COOKIE_FILE"
 chmod 600 "$COOKIE_FILE" 2>/dev/null || true
 
 # Export the cookie file location for Erlang
-export ERL_EPMD_ADDRESS="$LOCAL_IP"
-export ERL_EPMD_PORT="4369"
+export ERL_EPMD_PORT=4369
+export ERL_DIST_PORT=$DIST_PORT
 
 # Start the worker node
 echo -e "${BLUE}🚀 Starting STARWEAVE Worker Node...${NC}"
@@ -154,41 +155,13 @@ echo ""
 cd "$PROJECT_ROOT/apps/starweave_core" || exit 1
 
 # Start the worker node
-elixir \
-  --name "$FULL_NODE_NAME" \
+cd "$PROJECT_ROOT/apps/starweave_web" || exit 1
+
+# Start the node with proper distribution settings
+echo -e "${BLUE}Starting worker node...${NC}"
+
+exec iex \
+  --sname $NODE_NAME \
   --cookie "$COOKIE" \
-  --erl "-kernel inet_dist_listen_min $DIST_PORT" \
-  --erl "-kernel inet_dist_listen_max $DIST_PORT" \
-  -S mix run --no-halt \
-  -e "
-    # Connect to the main node
-    IO.puts(\"⏳ Connecting to main node: $MAIN_NODE\")
-    main_node = String.to_atom(\"$MAIN_NODE\")
-    case Node.connect(main_node) do
-      true ->
-        IO.puts(\"✅ Successfully connected to $MAIN_NODE\")
-        :ok = :net_kernel.monitor_nodes(true, node_type: :all)
-        IO.puts(\"🔍 Monitoring node status...\")
-      _ ->
-        IO.puts(\"❌ Failed to connect to $MAIN_NODE\")
-        System.halt(1)
-    end
-
-    # Keep the node alive
-    Process.flag(:trap_exit, true)
-    receive do
-      {:nodeup, node, _info} -> 
-        IO.puts(\"\n🟢 Node connected: #{inspect(node)}\")
-      {:nodedown, node, _info} -> 
-        IO.puts(\"\n🔴 Node disconnected: #{inspect(node)}\")
-        if node == \"$MAIN_NODE\" do
-          IO.puts(\"\n⚠️  Main node disconnected. Shutting down...\")
-          System.halt(0)
-        end
-    after
-      1_000 -> :ok
-    end
-
-    # Keep the node alive
-    Process.sleep(:infinity)
-  "
+  --erl "-kernel inet_dist_listen_min $DIST_PORT inet_dist_listen_max $((DIST_PORT + 10))" \
+  -S mix phx.server

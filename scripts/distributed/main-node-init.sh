@@ -75,21 +75,20 @@ COOKIE="${COOKIE:-$DEFAULT_COOKIE}"
 PORT="${PORT:-$DEFAULT_PORT}"
 ENV="${ENV:-$DEFAULT_ENV}"
 
-# Get the local IP address (works on both Linux and macOS)
+# Use hostname for the node name
+HOSTNAME=$(hostname -s)
+FULL_NODE_NAME="${NODE_NAME}@${HOSTNAME}"
+
+# Get local IP for display purposes
 if [ -n "$NODE_IP" ]; then
-    # Use explicitly provided IP address
     LOCAL_IP="$NODE_IP"
 elif command -v ip &> /dev/null; then
-    # Linux
     LOCAL_IP=$(ip route get 1 | awk '{print $7}' | head -1)
 elif command -v ifconfig &> /dev/null; then
-    # macOS
     LOCAL_IP=$(ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
 else
-    echo -e "${YELLOW}Warning: Could not determine local IP address, using localhost${NC}"
     LOCAL_IP="127.0.0.1"
 fi
-FULL_NODE_NAME="${NODE_NAME}@${LOCAL_IP}"
 
 # Display configuration
 echo -e "${BLUE}⚡ STARWEAVE Main Node Configuration ⚡${NC}"
@@ -164,11 +163,30 @@ echo -e "${BLUE}Starting node with full name: ${GREEN}$FULL_NODE_NAME${NC}"
 echo -e "${BLUE}Using cookie: ${GREEN}$COOKIE${NC}"
 echo -e "${BLUE}Listening on port: ${GREEN}4545${NC}"
 
-elixir \
-  --name "$FULL_NODE_NAME" \
-  --cookie "$COOKIE" \
-  --erl "-kernel inet_dist_listen_min 4545 inet_dist_listen_max 4545" \
-  -S mix phx.server
+# Change to the web app directory
+cd "$PROJECT_ROOT/apps/starweave_web" || exit 1
+
+# Use a simple node name without IP address
+NODE_NAME="main"
+
+# Display node information
+echo -e "${BLUE}Node Information:${NC}"
+echo "Node Name: $FULL_NODE_NAME"
+echo "Hostname: $HOSTNAME"
+echo "IP Address: $LOCAL_IP"
+
+# Start the Phoenix server directly
+echo -e "${BLUE}Starting Phoenix server...${NC}"
+
+# Change to the project root to ensure proper path resolution
+cd "$PROJECT_ROOT"
+
+# Start Phoenix with environment variables
+export MIX_ENV=dev
+export PORT=$PORT
+
+# Start the server
+mix phx.server
 
 # If the server exits, show a message
 echo -e "${YELLOW}STARWEAVE Main Node has stopped.${NC}"
