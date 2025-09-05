@@ -1,22 +1,64 @@
-## Distributed Issues
+# Distributed System Issues - Status Report
 
-./scripts/distributed/worker-node-init.sh --node-name worker1 --main-node main@192.168.0.47 --cookie starweave-cookie --port 4010
+## Current Configuration
+- Both nodes are running Endeavour OS and have installed Elixir/Erlang through the Paru AUR wrapper for pacman.
 
-isdood@001-LITE ~/STARWEAVE (main)> ./scripts/distributed/worker-node-init.sh --node-name worker1 --main-node main@192.168.0.47 --cookie starweave-cookie -
--port 4010
-⚡ STARWEAVE Worker Node Configuration ⚡
-Node Name: worker1@001-LITE
-Main Node: main@192.168.0.47
-Cookie: starweave-cookie
-Distribution Port: 4010
-Environment: dev
-Project Root: /home/isdood/STARWEAVE/scripts/..
+### Main Node
+- **IP Address**: 192.168.0.47
+- **HTTP Port**: 4000 (confirmed open and accessible)
+- **Distribution Port**: 9000 (confirmed open via netcat)
+- **Firewall**: firewalld (ports 4000 and 9000 are open)
 
-Setting Erlang cookie...
-Warning: Cannot write to /home/isdood/.erlang.cookie. Using alternative location.
-Using temporary cookie file at: /tmp/erlang.cookie.1000
-Warning: /tmp/erlang.cookie.1000 already exists. Backing it up to /tmp/erlang.cookie.1000.bak
-Checking connection to main node at main@192.168.0.47...
-Warning: Cannot connect to EPMD on 192.168.0.47:4369
-Please ensure the main node is running and accessible.
-If the main node is behind a firewall, make sure port 4369 (EPMD) and 4010 (distribution) are open.
+### Worker Node
+- **IP Address**: 192.168.0.49
+- **Distribution Port**: 9100-9110
+- **Firewall**: firewalld (ports 9100-9110 are open)
+- **Erlang Cookie**: starweave-cookie (matches main node)
+
+## Current Issue
+
+### Error Details
+When starting the worker node, it fails with the following error:
+```
+=SUPERVISOR REPORT====
+    supervisor: {local,net_sup}
+    errorContext: start_error
+    reason: {'EXIT',
+            {undef,
+                [{'Elixir.IEx.EPMD.Client',start_link,[],[]},
+                 ...
+                 {gen_server,init_it,6,
+                     [{file,"gen_server.erl"},{line,2236}]}]}}
+```
+
+### Root Cause Analysis
+1. **EPMD Client Initialization Failure**: The worker node is unable to start the IEx.EPMD.Client process.
+2. **Undefined Function**: The error suggests that the `start_link/0` function in the `IEx.EPMD.Client` module is undefined.
+3. **Dependency Issue**: This typically indicates a version mismatch or missing dependency between Elixir/Erlang and the IEx application.
+
+## Next Steps
+
+1. **Verify Elixir/Erlang Versions**
+   - Check that both nodes are running compatible versions of Elixir and Erlang
+   - Run `elixir --version` and `erl` on both nodes
+
+2. **Check IEx Application**
+   - Verify that IEx is properly installed and available
+   - Check for any version conflicts with IEx dependencies
+
+3. **Temporary Workaround**
+   - Try starting the worker node with `--no-halt` flag to prevent automatic connection attempts
+   - Manually connect to the main node after startup using `Node.connect/1`
+
+4. **Environment Variables**
+   - Check for any conflicting environment variables
+   - Ensure `ELIXIR_ERL_OPTIONS` is not set to conflicting values
+
+## Error Logs
+Full error logs have been captured in `erl_crash.dump` on the worker node.
+
+## Network Status
+- ✅ Main node HTTP port (4000) is accessible from worker
+- ✅ Main node distribution port (9000) is accessible from worker
+- ✅ Worker node can resolve main node's hostname
+- ✅ Firewall rules appear to be correctly configured on both nodes
