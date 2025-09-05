@@ -1,16 +1,19 @@
 #!/bin/bash
 
 # Worker Node Initialization Script for STARWEAVE
-# Simplified version that matches the main node implementation
+# Optimized for cross-PC distributed setup
 
-set -e
+set -euo pipefail
 
 # Default values
 DEFAULT_NODE_NAME="worker"
-DEFAULT_MAIN_NODE="main@192.168.0.47"  # Hardcoded for testing
+DEFAULT_MAIN_IP="192.168.0.47"
+DEFAULT_MAIN_HTTP_PORT=4000
+DEFAULT_MAIN_DIST_PORT=9000
 DEFAULT_COOKIE="starweave-cookie"
-DEFAULT_DIST_PORT=9100  # Different default port than main node
+DIST_PORT=9100
 DEFAULT_ENV="dev"
+DEFAULT_INTERFACE="eth0"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -31,32 +34,57 @@ show_help() {
     echo ""
     echo "Options:"
     echo "  -n, --node-name NAME    Set the worker node name (default: $DEFAULT_NODE_NAME)"
-    echo "  -m, --main-node NODE    Set the main node address (default: $DEFAULT_MAIN_NODE)"
+    echo "  -i, --main-ip IP        Set the main node IP address (default: $DEFAULT_MAIN_IP)"
+    echo "  -p, --http-port PORT    Set the main node HTTP port (default: $DEFAULT_MAIN_HTTP_PORT)"
+    echo "  -d, --dist-port PORT    Set the main node distribution port (default: $DEFAULT_MAIN_DIST_PORT)"
+    echo "  -w, --worker-port PORT  Set the worker node distribution port (default: $DIST_PORT)"
     echo "  -c, --cookie COOKIE     Set the Erlang cookie (default: $DEFAULT_COOKIE)"
-    echo "  -p, --port PORT         Set the distribution port (default: $DEFAULT_DIST_PORT)"
     echo "  -e, --env ENV           Set the environment (dev/prod, default: $DEFAULT_ENV)"
+    echo "  -I, --interface IFACE   Set the network interface (default: $DEFAULT_INTERFACE)"
     echo "  -h, --help              Show this help message"
     echo ""
     echo "Example:"
-    echo "  $0 --node-name worker1 --main-node main@192.168.1.100 --cookie my-secret-cookie --port 9100"
+    echo "  $0 --node-name worker1 --main-ip 192.168.1.100 --http-port 4000 --dist-port 9000"
 }
 
-# Function to get local IP
-get_local_ip() {
-    if [ -n "$NODE_IP" ]; then
-        echo "$NODE_IP"
-    elif command -v ip &> /dev/null; then
-        ip route get 1 | awk '{print $7}' | head -1
+# Function to get IP address for a specific interface
+get_interface_ip() {
+    local iface="${1:-$DEFAULT_INTERFACE}"
+    if command -v ip &> /dev/null; then
+        ip -4 addr show "$iface" | grep -oP '(?<=inet\s)\d+(\.\d+){3}'
     elif command -v ifconfig &> /dev/null; then
-        ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | head -1
+        ifconfig "$iface" | grep -oP '(?<=inet\s)\d+(\.\d+){3}'
     else
         echo "127.0.0.1"
     fi
 }
 
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" &> /dev/null
+}
+
+# Function to check if a port is available
+is_port_available() {
+    local port=$1
+    if command_exists nc; then
+        nc -z 127.0.0.1 "$port" &>/dev/null
+        return $((! $?))
+    elif command_exists ss; then
+        ss -tuln | grep -q ":$port "
+        return $((! $?))
+    elif command_exists netstat; then
+        netstat -tuln | grep -q ":$port "
+        return $((! $?))
+    else
+        # If we can't check, assume the port is available
+        return 0
+    fi
+}
+
 # Function to check EPMD
 check_epmd() {
-    if ! command -v epmd &> /dev/null; then
+    if ! command_exists epmd; then
         echo -e "${RED}Error: epmd (Erlang Port Mapper Daemon) not found in PATH${NC}"
         exit 1
     fi
@@ -94,7 +122,8 @@ setup_cookie() {
         chmod 600 "$cookie_file"
         echo -e "${GREEN}Created Erlang cookie file at $cookie_file${NC}"
     else
-        local current_cookie=$(cat "$cookie_file" 2>/dev/null || echo "")
+        local current_cookie
+        current_cookie=$(cat "$cookie_file" 2>/dev/null || echo "")
         if [ "$current_cookie" != "$cookie" ]; then
             echo -e "${YELLOW}Warning: Existing Erlang cookie in $cookie_file does not match specified cookie${NC}"
             echo -e "  Current: $current_cookie"
@@ -117,20 +146,32 @@ while [[ $# -gt 0 ]]; do
             NODE_NAME="$2"
             shift 2
             ;;
-        -m|--main-node)
-            MAIN_NODE="$2"
+        -i|--main-ip)
+            MAIN_IP="$2"
+            shift 2
+            ;;
+        -p|--http-port)
+            MAIN_HTTP_PORT="$2"
+            shift 2
+            ;;
+        -d|--dist-port)
+            MAIN_DIST_PORT="$2"
+            shift 2
+            ;;
+        -w|--worker-port)
+            DIST_PORT="$2"
             shift 2
             ;;
         -c|--cookie)
             COOKIE="$2"
             shift 2
             ;;
-        -p|--port)
-            DIST_PORT="$2"
-            shift 2
-            ;;
         -e|--env)
             ENV="$2"
+            shift 2
+            ;;
+        -I|--interface)
+            INTERFACE="$2"
             shift 2
             ;;
         -h|--help)
@@ -138,7 +179,7 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            echo "Unknown option: $1"
+            echo -e "${RED}Unknown option: $1${NC}"
             show_help
             exit 1
             ;;
@@ -147,37 +188,43 @@ done
 
 # Set default values if not provided
 NODE_NAME="${NODE_NAME:-$DEFAULT_NODE_NAME}"
-MAIN_NODE="${MAIN_NODE:-$DEFAULT_MAIN_NODE}"
+MAIN_IP="${MAIN_IP:-$DEFAULT_MAIN_IP}"
+MAIN_HTTP_PORT="${MAIN_HTTP_PORT:-$DEFAULT_MAIN_HTTP_PORT}"
+MAIN_DIST_PORT="${MAIN_DIST_PORT:-$DEFAULT_MAIN_DIST_PORT}"
 COOKIE="${COOKIE:-$DEFAULT_COOKIE}"
-DIST_PORT="${DIST_PORT:-$DEFAULT_DIST_PORT}"
+DIST_PORT="${DIST_PORT:-9100}"
 ENV="${ENV:-$DEFAULT_ENV}"
+INTERFACE="${INTERFACE:-$DEFAULT_INTERFACE}"
 
-# Get hostname and IP
+# Get network information
 HOSTNAME=$(hostname -s)
-LOCAL_IP=$(get_local_ip)
-FULL_NODE_NAME="${NODE_NAME}@${HOSTNAME}"
-
-# Extract main node hostname
-MAIN_NODE_HOST=${MAIN_NODE#*@}
-
-# Display configuration
-echo -e "${BLUE}⚡ STARWEAVE Worker Node Configuration ⚡${NC}"
-echo -e "${YELLOW}Node Name:${NC} $FULL_NODE_NAME"
-echo -e "${YELLOW}Main Node:${NC} $MAIN_NODE"
-echo -e "${YELLOW}IP Address:${NC} $LOCAL_IP"
-echo -e "${YELLOW}Cookie:${NC} $COOKIE"
-echo -e "${YELLOW}Distribution Port:${NC} $DIST_PORT"
-echo -e "${YELLOW}Environment:${NC} $ENV"
-echo -e "${YELLOW}Project Root:${NC} $PROJECT_ROOT"
-echo
+LOCAL_IP=$(get_interface_ip "$INTERFACE")
+FULL_NODE_NAME="${NODE_NAME}@${LOCAL_IP}"
+MAIN_NODE="main@${MAIN_IP}"
 
 # Check for required commands
 for cmd in elixir mix epmd; do
-    if ! command -v $cmd &> /dev/null; then
+    if ! command -v "$cmd" &> /dev/null; then
         echo -e "${RED}Error: $cmd is not installed or not in PATH${NC}"
         exit 1
     fi
 done
+
+# Verify ports are available
+if ! is_port_available "$DIST_PORT"; then
+    echo -e "${RED}Error: Port $DIST_PORT is already in use${NC}"
+    exit 1
+fi
+
+# Display configuration
+echo -e "\n${BLUE}⚡ STARWEAVE Worker Node Configuration ⚡${NC}"
+echo -e "${YELLOW}Worker Node:${NC} $FULL_NODE_NAME"
+echo -e "${YELLOW}Main Node:${NC} $MAIN_NODE"
+echo -e "${YELLOW}Main Node HTTP:${NC} http://${MAIN_IP}:${MAIN_HTTP_PORT}"
+echo -e "${YELLOW}Distribution Port:${NC} $DIST_PORT"
+echo -e "${YELLOW}Environment:${NC} $ENV"
+echo -e "${YELLOW}Interface:${NC} $INTERFACE"
+echo -e "${YELLOW}Local IP:${NC} $LOCAL_IP"
 
 # Set up Erlang cookie
 setup_cookie "$COOKIE"
@@ -186,10 +233,10 @@ setup_cookie "$COOKIE"
 check_epmd
 
 # Check connection to main node
-echo -e "${BLUE}Checking connection to main node at ${MAIN_NODE}...${NC}"
-if ! nc -z -w 5 "$MAIN_NODE_HOST" 4369; then
-    echo -e "${YELLOW}Warning: Cannot connect to EPMD on $MAIN_NODE_HOST:4369${NC}"
-    echo -e "${YELLOW}Please ensure the main node is running and accessible.${NC}"
+echo -e "\n${BLUE}Checking connection to main node at $MAIN_IP...${NC}"
+if ! nc -z -w 5 "$MAIN_IP" 4369; then
+    echo -e "${YELLOW}Warning: Cannot connect to EPMD on $MAIN_IP:4369${NC}"
+    echo -e "${YELLOW}Make sure the main node is running and accessible${NC}"
     echo -e "${YELLOW}If the main node is behind a firewall, make sure port 4369 (EPMD) is open.${NC}"
     exit 1
 fi
@@ -206,31 +253,34 @@ export ERL_FLAGS="-setcookie \"$COOKIE\""
 ERL_FLAGS+=" -kernel inet_dist_listen_min $DIST_PORT"
 ERL_FLAGS+=" -kernel inet_dist_listen_max $((DIST_PORT + 10))"
 ERL_FLAGS+=" -kernel inet_dist_use_interface \"{0,0,0,0}\""
-ERL_FLAGS+=" -sname \"$NODE_NAME\""
+ERL_FLAGS+=" -name \"$NODE_NAME@$LOCAL_IP\""
 ERL_FLAGS+=" -start_epmd false"  # We manage EPMD ourselves
 
 export ERL_FLAGS
 
 # Change to the web app directory
-cd "$PROJECT_ROOT/apps/starweave_web" || exit 1
+cd "$PROJECT_ROOT/apps/starweave_web" || {
+    echo -e "${RED}Error: Could not change to web app directory${NC}"
+    exit 1
+}
 
 # Display startup information
-echo -e "${BLUE}🚀 Starting STARWEAVE Worker Node...${NC}"
+echo -e "\n${BLUE}🚀 Starting STARWEAVE Worker Node...${NC}"
 echo -e "${YELLOW}Node:${NC} $FULL_NODE_NAME"
-echo -e "${YELLOW}Connecting to Main Node:${NC} $MAIN_NODE"
+echo -e "${YELLOW}Connecting to:${NC} $MAIN_NODE"
 echo -e "${YELLOW}EPMD:${NC} Running on port 4369"
 echo -e "${YELLOW}Distribution Ports:${NC} $DIST_PORT-$((DIST_PORT + 10))"
-echo -e "${YELLOW}To connect to this node:${NC}"
-echo -e "  iex --sname console@${HOSTNAME} --cookie ${COOKIE}"
-echo -e "${YELLOW}To connect from another node:${NC}"
-echo -e "  Node.connect(\"${NODE_NAME}@${HOSTNAME}\")"
+echo -e "\n${YELLOW}To connect to this node:${NC}"
+echo -e "  iex --name console@$LOCAL_IP --cookie $COOKIE"
+echo -e "\n${YELLOW}To connect from another node:${NC}"
+echo -e "  Node.connect(\"$NODE_NAME@$LOCAL_IP\")"
 echo
 
 # Start the worker node
 echo -e "${BLUE}Starting worker node and connecting to main node...${NC}"
 
 exec iex \
-  --sname $NODE_NAME \
+  --name "$NODE_NAME@$LOCAL_IP" \
   --cookie "$COOKIE" \
   --erl "-start_epmd false -epmd_module Elixir.IEx.EPMD.Client -proto_dist Elixir.IEx.Distribution.Client.ERL_EPMD_DIST" \
   -S mix phx.server
