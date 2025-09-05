@@ -9,7 +9,8 @@ defmodule StarweaveCore.Application do
   def start(_type, _args) do
     children = [
       StarweaveCore.PatternStore,
-      {StarweaveCore.Distributed.Supervisor, []}
+      {StarweaveCore.Distributed.Supervisor, []},
+      {StarweaveCore.Intelligence.Supervisor, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

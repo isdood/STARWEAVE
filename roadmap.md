@@ -91,7 +91,9 @@ STARWEAVE/
 - Advanced forgetting mechanisms based on usage patterns
 
 ### Distributed Architecture (Weeks 7-8)
-Note: Distributed testing will be done with one PC featuring a CPU and AMD GPU, while another PC will feature only an Intel CPU. However, we may simulate the distributed environment at first as testing will be done quicker this way.
+- [ ] Distributed testing will be done with one PC featuring a CPU and AMD GPU, while another PC will feature only an Intel CPU. However, we may simulate the distributed environment at first as testing will be done quicker this way.
+- *Note: Distributed architecture is currently incomplete due to frustrations with the implementation.*
+
 
 - [x] Set up basic node discovery
   - [x] Simple node registration
@@ -129,15 +131,15 @@ Note: Distributed testing will be done with one PC featuring a CPU and AMD GPU, 
 ## 🧠 Phase 3: Intelligence Layer (Weeks 9-12)
 
 ### Cognitive Architecture
-- [ ] Implement working memory system
-- [ ] Create attention mechanisms
-- [ ] Add goal management system
-- [ ] Implement basic reasoning capabilities
+- [x] Implement working memory system
+- [x] Create attention mechanisms
+- [x] Add goal management system
+- [x] Implement basic reasoning capabilities
 
 ### Learning & Adaptation
-- [ ] Add reinforcement learning integration
-- [ ] Implement pattern-based learning
-- [ ] Create feedback mechanisms
+- [x] Add reinforcement learning integration
+- [x] Implement pattern-based learning
+- [x] Create feedback mechanisms
 - [ ] Add self-modification capabilities
 
 ### Advanced Features
