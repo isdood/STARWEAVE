@@ -12,7 +12,19 @@ DEFAULT_HTTP_PORT=4000
 DEFAULT_DIST_PORT=9000
 DEFAULT_ENV="dev"
 DEFAULT_MODEL="gpt-oss:20b"
-DEFAULT_INTERFACE="eth0"
+# Try to detect the default network interface (wlan0 for WiFi, eth0 for Ethernet, or first available)
+DEFAULT_INTERFACE=""
+if ip link show wlan0 &>/dev/null; then
+    DEFAULT_INTERFACE="wlan0"
+elif ip link show eth0 &>/dev/null; then
+    DEFAULT_INTERFACE="eth0"
+else
+    # Fallback to first available non-loopback interface
+    DEFAULT_INTERFACE=$(ip -o -4 route show to default | awk '{print $5}' | head -1)
+    if [ -z "$DEFAULT_INTERFACE" ]; then
+        DEFAULT_INTERFACE="lo"  # Fallback to loopback if nothing else is available
+    fi
+fi
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -48,13 +60,32 @@ show_help() {
 # Function to get IP address for a specific interface
 get_interface_ip() {
     local iface="${1:-$DEFAULT_INTERFACE}"
-    if command -v ip &> /dev/null; then
-        ip -4 addr show "$iface" | grep -oP '(?<=inet\s)\d+(\.\d+){3}'
-    elif command -v ifconfig &> /dev/null; then
-        ifconfig "$iface" | grep -oP '(?<=inet\s)\d+(\.\d+){3}'
-    else
-        echo "127.0.0.1"
+    local ip=""
+    
+    if [ -z "$iface" ]; then
+        # If no interface specified, try to get the default route interface
+        iface=$(ip -o -4 route show to default | awk '{print $5}' | head -1)
+        if [ -z "$iface" ]; then
+            echo "127.0.0.1"
+            return 1
+        fi
     fi
+    
+    echo "Using network interface: $iface" >&2
+    
+    if command -v ip &> /dev/null; then
+        ip=$(ip -4 addr show "$iface" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
+    elif command -v ifconfig &> /dev/null; then
+        ip=$(ifconfig "$iface" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
+    fi
+    
+    if [ -z "$ip" ]; then
+        echo "127.0.0.1"
+        return 1
+    fi
+    
+    echo "$ip"
+    return 0
 }
 
 # Function to check if EPMD is running
