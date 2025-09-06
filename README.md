@@ -3,8 +3,6 @@
 ## Vision
 STARWEAVE is an advanced pattern recognition and execution framework designed to identify, analyze, and adapt to complex patterns in data streams. The system combines principles from distributed systems, machine learning, and computational geometry to create a robust platform for real-time pattern analysis and response.
 
-STARWEAVE is a rewrite/port of the GLIMMER pattern recognition engine. I originally coded GLIMMER while experiencing pyschosis-like symptoms. Due to this, the codebase is an absolute nightmare of tangled bits. This repo will aim to untangle those bits, providing a much cleaner codebase now that my mind is much clearer ✨
-
 ## Core Principles
 
 ### 1. Adaptive Pattern Recognition
