@@ -6,14 +6,19 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   
   The working memory is organized into different contexts (e.g., :conversation, :environment, :goals)
   to allow for better organization and retrieval of information.
+  
+  Memories are persisted to disk to survive application restarts.
   """
   
   use GenServer
   require Logger
   
+  alias StarweaveCore.Intelligence.MemoryPersistence
+  
   @table_name :starweave_working_memory
   @cleanup_interval 60_000  # 60 seconds
   @default_ttl :timer.hours(24)  # 24 hours default TTL
+  @persist_interval 5_000  # 5 seconds between persistence operations
   
   @type context :: atom()
   @type memory_key :: atom() | String.t()
@@ -104,32 +109,50 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
     GenServer.call(__MODULE__, {:search, query, threshold, limit})
   end
   
+  @doc """
+  Manually triggers persistence of all current memories to disk.
+  Returns :ok on success or {:error, reason} on failure.
+  """
+  @spec persist_now() :: :ok | {:error, term()}
+  def persist_now do
+    GenServer.call(__MODULE__, :persist_now)
+  end
+  
   # Server Callbacks
   
   @impl true
   def init(_) do
     # Create ETS table if it doesn't exist
-    case :ets.info(@table_name) do
-      :undefined ->
-        :ets.new(@table_name, [
-          :set,
-          :named_table,
-          :public,
-          {:read_concurrency, true},
-          {:write_concurrency, true},
-          # Persist the table even if the owner dies
-          {:heir, Process.whereis(:init), []},
-          # Compress terms to save memory
-          :compressed
-        ])
-        Logger.info("Created new ETS table: #{@table_name}")
-      _ ->
-        Logger.info("Using existing ETS table: #{@table_name}")
-    end
+    _table = 
+      case :ets.info(@table_name) do
+        :undefined ->
+          :ets.new(@table_name, [
+            :set,
+            :named_table,
+            :public,
+            {:read_concurrency, true},
+            {:write_concurrency, true},
+            # Persist the table even if the owner dies
+            {:heir, Process.whereis(:init), []},
+            # Compress terms to save memory
+            :compressed
+          ])
+        _ ->
+          @table_name
+      end
     
-    # Schedule the first cleanup
+    # Load any persisted memories
+    :ok = load_persisted_memories()
+    
+    # Schedule the first cleanup and persistence
     cleanup_ref = Process.send_after(self(), :cleanup, @cleanup_interval)
-    {:ok, %{cleanup_ref: cleanup_ref}}
+    persist_ref = Process.send_after(self(), :persist_memories, @persist_interval)
+    
+    {:ok, %{
+      cleanup_ref: cleanup_ref,
+      persist_ref: persist_ref,
+      last_persist_count: 0
+    }}
   end
   
   @impl true
@@ -155,15 +178,77 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
     {:noreply, state}
   end
   
-  def handle_cast({:forget, context, key}, state) do
-    true = :ets.delete(@table_name, {context, key})
-    {:noreply, state}
+  @impl true
+  def handle_info(msg, state) do
+    case msg do
+      :persist_memories ->
+        handle_persist_memories(state)
+      
+      :cleanup ->
+        handle_cleanup(state)
+      
+      _ ->
+        Logger.warning("Received unknown message: #{inspect(msg)}")
+        {:noreply, state}
+    end
   end
   
-  def handle_cast({:clear_context, context}, state) do
-    # Delete all entries for this context
-    :ets.match_delete(@table_name, {{context, :_}, :_})
-    {:noreply, state}
+  defp handle_persist_memories(%{last_persist_count: last_count} = state) do
+    entries = :ets.match_object(@table_name, :_)
+    current_count = length(entries)
+    
+    # Only persist if there are changes
+    if current_count != last_count do
+      case MemoryPersistence.save_memories(entries) do
+        :ok ->
+          Logger.debug("Persisted #{current_count} memories to disk")
+        {:error, reason} ->
+          Logger.error("Failed to persist memories: #{inspect(reason)}")
+      end
+    end
+    
+    # Schedule next persistence check
+    persist_ref = Process.send_after(self(), :persist_memories, @persist_interval)
+    {:noreply, %{state | persist_ref: persist_ref, last_persist_count: current_count}}
+  end
+  
+  defp handle_cleanup(%{cleanup_ref: _} = state) do
+    now = DateTime.utc_now()
+    
+    # Get all entries and process them
+    entries = :ets.match_object(@table_name, :_)
+    
+    {deleted_count, updated_count} = 
+      Enum.reduce(entries, {0, 0}, fn {{context, key}, %{expires_at: expires_at} = entry}, {del, upd} ->
+        cond do
+          # Delete if expired
+          expires_at != :infinity && DateTime.compare(now, expires_at) == :gt ->
+            Logger.debug("Deleting expired entry: #{inspect({context, key})}")
+            :ets.delete(@table_name, {context, key})
+            {del + 1, upd}
+            
+          # Keep important entries even if they would expire
+          entry.importance > 0.8 ->
+            # Extend TTL for important entries
+            new_expires_at = DateTime.add(now, div(entry.ttl, 2), :millisecond)
+            :ets.update_element(@table_name, {context, key}, 
+              {2, %{entry | expires_at: new_expires_at}})
+            {del, upd + 1}
+            
+          true ->
+            # Keep the entry
+            {del, upd}
+        end
+      end)
+      
+    # Log cleanup results if there were changes
+    if deleted_count > 0 || updated_count > 0 do
+      Logger.debug("Memory cleanup: #{deleted_count} entries deleted, #{updated_count} entries updated")
+    end
+    
+    # Schedule next cleanup
+    cleanup_ref = Process.send_after(self(), :cleanup, @cleanup_interval)
+    {:noreply, %{state | cleanup_ref: cleanup_ref}}
   end
   
   @impl true
@@ -186,6 +271,7 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
     {:reply, result, state}
   end
   
+  @impl true
   def handle_call({:get_context, context}, _from, state) do
     now = DateTime.utc_now()
     
@@ -209,6 +295,7 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
     {:reply, result, state}
   end
   
+  @impl true
   def handle_call({:search, query, threshold, limit}, _from, state) do
     now = DateTime.utc_now()
     
@@ -233,48 +320,39 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   end
   
   @impl true
-  def handle_info(:cleanup, %{cleanup_ref: _cleanup_ref} = state) do
-    now = DateTime.utc_now()
-    count_before = :ets.info(@table_name, :size)
-    
-    # Get all entries
+  def handle_call(:persist_now, _from, %{last_persist_count: _} = state) do
     entries = :ets.match_object(@table_name, :_)
     
-    # Process each entry
-    {deleted_count, updated_count} = 
-      Enum.reduce(entries, {0, 0}, fn {{context, key}, %{expires_at: expires_at} = entry}, {deleted, updated} ->
-        cond do
-          # Delete if expired
-          expires_at != :infinity && DateTime.compare(now, expires_at) == :gt ->
-            Logger.debug("Deleting expired entry: #{inspect({context, key})}")
-            :ets.delete(@table_name, {context, key})
-            {deleted + 1, updated}
-            
-          # Keep important entries even if they would expire
-          entry.importance > 0.8 ->
-            # Extend TTL for important entries
-            new_expires_at = DateTime.add(now, div(entry.ttl, 2), :millisecond)
-            :ets.update_element(@table_name, {context, key}, 
-              {2, %{entry | expires_at: new_expires_at}})
-            {deleted, updated + 1}
-            
-          true ->
-            # Keep the entry
-            {deleted, updated}
-        end
-      end)
-    
-    count_after = :ets.info(@table_name, :size)
-    
-    # Only log if there were changes
-    if deleted_count > 0 || updated_count > 0 do
-      Logger.debug("Cleanup: #{deleted_count} deleted, #{updated_count} updated, #{count_after} remaining")
+    case MemoryPersistence.save_memories(entries) do
+      :ok ->
+        Logger.info("Manually persisted #{length(entries)} memories to disk")
+        {:reply, :ok, %{state | last_persist_count: length(entries)}}
+      error ->
+        Logger.error("Failed to persist memories: #{inspect(error)}")
+        {:reply, error, state}
     end
-    
-    # Schedule next cleanup
-    cleanup_ref = Process.send_after(self(), :cleanup, @cleanup_interval)
-    {:noreply, %{state | cleanup_ref: cleanup_ref}}
   end
+  
+  # Load persisted memories into ETS
+  defp load_persisted_memories do
+    case StarweaveCore.Intelligence.MemoryPersistence.load_memories() do
+      entries when is_list(entries) and entries != [] ->
+        Logger.info("Loading #{length(entries)} persisted memories from disk")
+        
+        # Insert all entries into ETS
+        Enum.each(entries, fn {key, value} ->
+          :ets.insert(@table_name, {key, value})
+        end)
+        
+        Logger.info("Successfully loaded #{length(entries)} memories into ETS")
+        :ok
+        
+      _ ->
+        Logger.info("No persisted memories found to load")
+        :ok
+    end
+  end
+  
   
   # Helper functions
   
