@@ -19,15 +19,15 @@ defmodule StarweaveCore.Intelligence.GoalManager do
     Goal structure.
     """
     @type t :: %__MODULE__{
-            id: goal_id(),
+            id: StarweaveCore.Intelligence.GoalManager.goal_id(),
             description: String.t(),
-            status: status(),
-            priority: priority(),
+            status: StarweaveCore.Intelligence.GoalManager.status(),
+            priority: StarweaveCore.Intelligence.GoalManager.priority(),
             created_at: DateTime.t(),
             updated_at: DateTime.t(),
             metadata: map(),
-            parent_goal_id: goal_id() | nil,
-            subgoals: [goal_id()]
+            parent_goal_id: StarweaveCore.Intelligence.GoalManager.goal_id() | nil,
+            subgoals: [StarweaveCore.Intelligence.GoalManager.goal_id()]
           }
     
     defstruct [

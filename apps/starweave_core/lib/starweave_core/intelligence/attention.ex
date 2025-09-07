@@ -162,7 +162,7 @@ defmodule StarweaveCore.Intelligence.Attention do
   Focuses attention on the most relevant memories based on the current context.
   """
   @spec focus_on_memories(context :: String.t() | [float()], opts :: keyword()) ::
-    {:ok, [{key :: any(), memory :: any(), score :: float()]} | :no_memories]
+    {:ok, [{key :: any(), memory :: any(), score :: float()}]} | :no_memories
   def focus_on_memories(context, opts \\ []) do
     limit = Keyword.get(opts, :limit, 5)
     threshold = Keyword.get(opts, :threshold, 0.1)

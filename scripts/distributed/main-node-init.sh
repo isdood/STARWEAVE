@@ -3,6 +3,9 @@
 # Main Node Initialization Script for STARWEAVE
 # Optimized for cross-PC distributed setup
 
+# Clear the screen
+clear
+
 set -euo pipefail
 
 # Default values
