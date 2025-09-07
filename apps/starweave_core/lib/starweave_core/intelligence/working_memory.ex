@@ -12,7 +12,8 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   require Logger
   
   @table_name :starweave_working_memory
-  @cleanup_interval 10_000  # 10 seconds
+  @cleanup_interval 60_000  # 60 seconds
+  @default_ttl :timer.hours(24)  # 24 hours default TTL
   
   @type context :: atom()
   @type memory_key :: atom() | String.t()
@@ -43,14 +44,15 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
     - `key`: The key to store the value under
     - `value`: The value to store
     - `opts`: Additional options
-      - `:ttl`: Time to live in milliseconds (default: 30_000)
+      - `:ttl`: Time to live in milliseconds (default: #{@default_ttl})
       - `:importance`: Importance score (0.0 to 1.0, default: 0.5)
   """
   @spec store(context(), memory_key(), memory_value(), keyword()) :: :ok
   def store(context, key, value, opts \\ []) do
-    ttl = Keyword.get(opts, :ttl, 30_000)
+    ttl = Keyword.get(opts, :ttl, @default_ttl)
     importance = Keyword.get(opts, :importance, 0.5)
     
+    Logger.debug("Storing in working memory: #{inspect(context)}/#{inspect(key)}")
     GenServer.cast(__MODULE__, {:store, context, key, value, ttl, importance})
   end
   
@@ -107,17 +109,23 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   @impl true
   def init(_) do
     # Create ETS table if it doesn't exist
-    :ets.new(@table_name, [
-      :set,
-      :named_table,
-      :public,
-      {:read_concurrency, true},
-      {:write_concurrency, true},
-      # Persist the table even if the owner dies
-      {:heir, Process.whereis(:init), []},
-      # Compress terms to save memory
-      :compressed
-    ])
+    case :ets.info(@table_name) do
+      :undefined ->
+        :ets.new(@table_name, [
+          :set,
+          :named_table,
+          :public,
+          {:read_concurrency, true},
+          {:write_concurrency, true},
+          # Persist the table even if the owner dies
+          {:heir, Process.whereis(:init), []},
+          # Compress terms to save memory
+          :compressed
+        ])
+        Logger.info("Created new ETS table: #{@table_name}")
+      _ ->
+        Logger.info("Using existing ETS table: #{@table_name}")
+    end
     
     # Schedule the first cleanup
     cleanup_ref = Process.send_after(self(), :cleanup, @cleanup_interval)
@@ -134,8 +142,12 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
       timestamp: now,
       ttl: ttl,
       expires_at: expires_at,
-      importance: importance
+      importance: importance,
+      context: context,
+      key: key
     }
+    
+    Logger.debug("Storing entry: #{inspect({context, key})} with TTL: #{inspect(ttl)}")
     
     # Store in ETS with a composite key of {context, key}
     true = :ets.insert(@table_name, {{context, key}, entry})
@@ -221,31 +233,47 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   end
   
   @impl true
-  def handle_info(:cleanup, %{memories: memories} = state) do
+  def handle_info(:cleanup, %{cleanup_ref: _cleanup_ref} = state) do
     now = DateTime.utc_now()
-    now_ts = DateTime.to_unix(now, :millisecond)
+    count_before = :ets.info(@table_name, :size)
     
-    # Remove expired memories
-    updated_memories = 
-      memories
-      |> Enum.map(fn {context, context_memories} ->
-        updated_context = 
-          context_memories
-          |> Enum.reject(fn {_key, %{timestamp: ts, ttl: ttl}} ->
-            ttl != :infinity && 
-            DateTime.diff(now, ts, :millisecond) > ttl
-          end)
-          |> Enum.into(%{})
-          
-        {context, updated_context}
+    # Get all entries
+    entries = :ets.match_object(@table_name, :_)
+    
+    # Process each entry
+    {deleted_count, updated_count} = 
+      Enum.reduce(entries, {0, 0}, fn {{context, key}, %{expires_at: expires_at} = entry}, {deleted, updated} ->
+        cond do
+          # Delete if expired
+          expires_at != :infinity && DateTime.compare(now, expires_at) == :gt ->
+            Logger.debug("Deleting expired entry: #{inspect({context, key})}")
+            :ets.delete(@table_name, {context, key})
+            {deleted + 1, updated}
+            
+          # Keep important entries even if they would expire
+          entry.importance > 0.8 ->
+            # Extend TTL for important entries
+            new_expires_at = DateTime.add(now, div(entry.ttl, 2), :millisecond)
+            :ets.update_element(@table_name, {context, key}, 
+              {2, %{entry | expires_at: new_expires_at}})
+            {deleted, updated + 1}
+            
+          true ->
+            # Keep the entry
+            {deleted, updated}
+        end
       end)
-      |> Enum.reject(fn {_context, mems} -> map_size(mems) == 0 end)
-      |> Enum.into(%{})
+    
+    count_after = :ets.info(@table_name, :size)
+    
+    # Only log if there were changes
+    if deleted_count > 0 || updated_count > 0 do
+      Logger.debug("Cleanup: #{deleted_count} deleted, #{updated_count} updated, #{count_after} remaining")
+    end
     
     # Schedule next cleanup
-    Process.send_after(self(), :cleanup, 10_000)
-    
-    {:noreply, %{state | memories: updated_memories}}
+    cleanup_ref = Process.send_after(self(), :cleanup, @cleanup_interval)
+    {:noreply, %{state | cleanup_ref: cleanup_ref}}
   end
   
   # Helper functions

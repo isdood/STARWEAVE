@@ -8,6 +8,7 @@ defmodule StarweaveWeb.PatternLive.Index do
   require Logger
 
   alias StarweaveLLM.ContextManager
+  alias StarweaveCore.Intelligence.WorkingMemory
   import StarweaveWeb.MarkdownHelper, only: [render_markdown: 1]
 
   @pattern_topic "pattern:lobby"
@@ -47,12 +48,30 @@ defmodule StarweaveWeb.PatternLive.Index do
 
   @impl true
   def handle_event("send_message", %{"message" => message}, socket) when byte_size(message) > 0 do
+    now = DateTime.utc_now()
     user_message = %{
       id: System.unique_integer([:positive]),
       sender: "user",
       text: message,
-      timestamp: DateTime.utc_now()
+      timestamp: now
     }
+
+    # Extract and store personal information
+    case extract_personal_info(message) do
+      {:name, name} ->
+        # 30 days in milliseconds (1000 * 60 * 60 * 24 * 30)
+        ttl = 2_592_000_000
+        WorkingMemory.store(:user, :name, name, importance: 0.9, ttl: ttl)
+        Logger.info("Stored user name in working memory: #{name}")
+      _ ->
+        :noop
+    end
+
+    # Store the message in working memory (24 hours in milliseconds)
+    WorkingMemory.store(:conversation, "message_#{user_message.id}", user_message, 
+      importance: 0.7, 
+      ttl: 86_400_000
+    )
 
     send(self(), {:typing_started})
     send(self(), {:llm_chat, message, socket.assigns.context_manager})
@@ -78,6 +97,16 @@ defmodule StarweaveWeb.PatternLive.Index do
     {:noreply, assign(socket, :is_typing, false)}
   end
 
+  defp extract_personal_info(message) do
+    cond do
+      # Match patterns like "my name is Caleb" or "I'm Caleb"
+      name = Regex.named_captures(~r/(?:my name is|i[\s\']m|i am)\s+(?<name>[A-Za-z]+(?:\s+[A-Za-z]+)*)/i, message) |> get_in(["name"]) ->
+        {:name, String.trim(name)}
+      true ->
+        :no_match
+    end
+  end
+
   def handle_info({:llm_chat, message, context_manager}, socket) do
     case StarweaveLlm.OllamaClient.chat_with_context(
            message,
@@ -86,12 +115,19 @@ defmodule StarweaveWeb.PatternLive.Index do
            use_memory: true
          ) do
       {:ok, reply, updated_context} ->
+        now = DateTime.utc_now()
         ai_message = %{
           id: System.unique_integer([:positive]),
           sender: "ai",
           text: reply,
-          timestamp: DateTime.utc_now()
+          timestamp: now
         }
+
+        # Store AI response in working memory (24 hours in milliseconds)
+        WorkingMemory.store(:conversation, "message_#{ai_message.id}", ai_message, 
+          importance: 0.7, 
+          ttl: 86_400_000
+        )
 
         send(self(), {:typing_stopped})
 

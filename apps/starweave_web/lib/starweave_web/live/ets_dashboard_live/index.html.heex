@@ -1,0 +1,170 @@
+<div class="container mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold text-gray-900 mb-8">ETS Memory Dashboard</h1>
+  
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <div class="bg-white p-6 rounded-lg shadow">
+      <h2 class="text-xl font-semibold mb-4">Memory Statistics</h2>
+      <div class="space-y-2">
+        <div class="flex justify-between">
+          <span class="text-gray-600">Total Contexts:</span>
+          <span class="font-medium"><%= @stats.total_contexts %></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">Total Entries:</span>
+          <span class="font-medium"><%= @stats.total_entries %></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">Last Updated:</span>
+          <span class="font-mono text-sm"><%= @last_updated %></span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="bg-white p-6 rounded-lg shadow">
+      <h2 class="text-xl font-semibold mb-4">Context Distribution</h2>
+      <div class="h-64">
+        <div phx-update="ignore" id="context-chart">
+          <!-- Chart will be rendered here by Chart.js -->
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="bg-white rounded-lg shadow overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h2 class="text-xl font-semibold">Memory Contents</h2>
+    </div>
+    
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Context</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Key</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importance</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <%= for {context, key, value, meta} <- @memory_entries do %>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <code class="text-xs bg-gray-100 px-2 py-1 rounded"><%= context %></code>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><%= key %></td>
+              <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={inspect(value) |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()}>
+                <%= if is_binary(value) do %>
+                  <%= value %>
+                <% else %>
+                  <code class="text-xs"><%= inspect(value) %></code>
+                <% end %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <%= format_timestamp(meta.timestamp) %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                  <div class="bg-blue-600 h-2.5 rounded-full" style={"width: #{meta.importance * 100}%"}></div>
+                </div>
+                <span class="text-xs text-gray-500"><%= Float.round(meta.importance, 2) %></span>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    
+    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+      <div class="flex justify-between items-center">
+        <div class="text-sm text-gray-500">
+          Showing <span class="font-medium"><%= length(@memory_entries) %></span> entries
+        </div>
+        <button 
+          phx-click="refresh" 
+          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          Refresh
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%= if @show_modal do %>
+  <div class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50" phx-click="close_modal">
+    <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto" phx-click-away="close_modal">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-medium text-gray-900">Memory Details</h3>
+        <button phx-click="close_modal" class="text-gray-400 hover:text-gray-500">
+          <span class="sr-only">Close</span>
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="bg-gray-50 p-4 rounded-md">
+        <pre class="text-xs overflow-auto max-h-[60vh]"><code><%= @selected_memory_details %></code></pre>
+      </div>
+    </div>
+  </div>
+<% end %>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Initialize or update the chart
+  const updateChart = (ctx, labels, data) => {
+    if (window.memoryChart) {
+      window.memoryChart.data.labels = labels;
+      window.memoryChart.data.datasets[0].data = data;
+      window.memoryChart.update();
+    } else {
+      const ctxEl = document.getElementById('context-chart');
+      if (ctxEl) {
+        const ctx = ctxEl.getContext('2d');
+        window.memoryChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: data,
+              backgroundColor: [
+                'rgba(59, 130, 246, 0.8)',
+                'rgba(16, 185, 129, 0.8)',
+                'rgba(245, 158, 11, 0.8)',
+                'rgba(239, 68, 68, 0.8)',
+                'rgba(139, 92, 246, 0.8)',
+              ],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'right',
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const label = context.label || '';
+                    const value = context.raw || 0;
+                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                    const percentage = Math.round((value / total) * 100);
+                    return `${label}: ${value} (${percentage}%)`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+  };
+
+  // Handle the chart data from Phoenix
+  window.addEventListener('phx:update-chart', (e) => {
+    updateChart('context-chart', e.detail.labels, e.detail.data);
+  });
+</script>

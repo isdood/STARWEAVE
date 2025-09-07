@@ -140,6 +140,8 @@ STARWEAVE/
 - [x] Add reinforcement learning integration
 - [x] Implement pattern-based learning
 - [x] Create feedback mechanisms
+- [x] Implement web dashboard for ETS persistent storage for memories (completed but not polished)
+- [ ] Implement system to transfer ETS memories to disk based storage for true persistence
 - [ ] Add self-modification capabilities
 
 ### Advanced Features

@@ -88,10 +88,11 @@ defmodule StarweaveCore.Intelligence.FeedbackMechanism do
   @impl true
   def handle_cast({:record_feedback, feedback}, state) do
     # Add new feedback and trim old items
+    now = NaiveDateTime.utc_now()
     updated_items = 
       [feedback | state.feedback_items]
       |> Enum.take(@max_feedback_items)
-      |> Enum.reject(&expired_feedback?/1)
+      |> Enum.reject(&expired_feedback?(&1, now))
     
     # Persist to working memory
     WorkingMemory.store(:feedback, :items, updated_items)
@@ -129,14 +130,27 @@ defmodule StarweaveCore.Intelligence.FeedbackMechanism do
   end
   
   @impl true
-  def handle_info(:process_feedback, state) do
-    # Process feedback periodically
-    {:ok, _count} = process_pending_feedback()
+  def handle_info(:process_feedback, %{feedback_items: feedback_items} = state) do
+    # Process feedback items directly without making a GenServer call
+    now = DateTime.utc_now()
+    
+    # Filter out expired feedback and get items to process
+    {to_process, remaining} = Enum.split_with(feedback_items, &expired_feedback?(&1, now))
+    
+    # Process the items
+    processed_items = 
+      to_process
+      |> Enum.map(&process_feedback_item/1)
+      |> Enum.concat(remaining)
+      |> Enum.take(@max_feedback_items)
+    
+    # Persist changes
+    WorkingMemory.store(:feedback, :items, processed_items)
     
     # Schedule next processing
     schedule_feedback_processing()
     
-    {:noreply, state}
+    {:noreply, %{state | feedback_items: processed_items}}
   end
   
   # Private functions
@@ -146,13 +160,14 @@ defmodule StarweaveCore.Intelligence.FeedbackMechanism do
     Process.send_after(self(), :process_feedback, :timer.minutes(5))
   end
   
-  defp expired_feedback?(feedback) do
+  defp expired_feedback?(feedback, now \\ NaiveDateTime.utc_now()) do
     # Check if feedback is older than TTL
-    age = NaiveDateTime.diff(NaiveDateTime.utc_now(), feedback.timestamp, :millisecond)
+    age = NaiveDateTime.diff(now, feedback.timestamp, :millisecond)
     age > @default_feedback_ttl
   end
   
   defp matches_filters?(item, filters) do
+    now = NaiveDateTime.utc_now()
     Enum.all?(filters, fn
       {:type, value} -> item.type == value
       {:source, value} -> item.source == value
@@ -160,7 +175,7 @@ defmodule StarweaveCore.Intelligence.FeedbackMechanism do
       {:after, timestamp} -> NaiveDateTime.compare(item.timestamp, timestamp) in [:gt, :eq]
       {:before, timestamp} -> NaiveDateTime.compare(item.timestamp, timestamp) in [:lt, :eq]
       _ -> true
-    end) && !expired_feedback?(item)
+    end) && !expired_feedback?(item, now)
   end
   
   defp process_feedback_item(feedback) do
