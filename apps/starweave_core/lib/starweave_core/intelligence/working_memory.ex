@@ -1,8 +1,8 @@
 defmodule StarweaveCore.Intelligence.WorkingMemory do
   @moduledoc """
   A GenServer-based working memory system for maintaining and managing the agent's
-  short-term memory. This module provides functionality to store, retrieve, and
-  manage information in a structured way.
+  short-term and long-term memory using ETS for persistence. This module provides 
+  functionality to store, retrieve, and manage information in a structured way.
   
   The working memory is organized into different contexts (e.g., :conversation, :environment, :goals)
   to allow for better organization and retrieval of information.
@@ -10,6 +10,9 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   
   use GenServer
   require Logger
+  
+  @table_name :starweave_working_memory
+  @cleanup_interval 10_000  # 10 seconds
   
   @type context :: atom()
   @type memory_key :: atom() | String.t()
@@ -103,95 +106,113 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   
   @impl true
   def init(_) do
-    # Start the cleanup process
-    Process.send_after(self(), :cleanup, 10_000)  # Run cleanup every 10 seconds
-    {:ok, %{memories: %{}, cleanup_ref: nil}}
+    # Create ETS table if it doesn't exist
+    :ets.new(@table_name, [
+      :set,
+      :named_table,
+      :public,
+      {:read_concurrency, true},
+      {:write_concurrency, true},
+      # Persist the table even if the owner dies
+      {:heir, Process.whereis(:init), []},
+      # Compress terms to save memory
+      :compressed
+    ])
+    
+    # Schedule the first cleanup
+    cleanup_ref = Process.send_after(self(), :cleanup, @cleanup_interval)
+    {:ok, %{cleanup_ref: cleanup_ref}}
   end
   
   @impl true
-  def handle_cast({:store, context, key, value, ttl, importance}, %{memories: memories} = state) do
+  def handle_cast({:store, context, key, value, ttl, importance}, state) do
     now = DateTime.utc_now()
+    expires_at = if is_integer(ttl), do: DateTime.add(now, ttl, :millisecond), else: :infinity
     
-    new_entry = %{
+    entry = %{
       value: value,
       timestamp: now,
       ttl: ttl,
+      expires_at: expires_at,
       importance: importance
     }
     
-    # Update the memories, creating the context and key if they don't exist
-    updated_memories = 
-      memories
-      |> Map.put_new(context, %{})
-      |> put_in([context, key], new_entry)
+    # Store in ETS with a composite key of {context, key}
+    true = :ets.insert(@table_name, {{context, key}, entry})
     
-    {:noreply, %{state | memories: updated_memories}}
+    {:noreply, state}
   end
   
-  def handle_cast({:forget, context, key}, %{memories: memories} = state) do
-    updated_memories = 
-      case Map.get(memories, context) do
-        nil -> memories
-        context_memories -> 
-          updated_context = Map.delete(context_memories, key)
-          if map_size(updated_context) == 0 do
-            Map.delete(memories, context)
-          else
-            Map.put(memories, context, updated_context)
-          end
-      end
-    
-    {:noreply, %{state | memories: updated_memories}}
+  def handle_cast({:forget, context, key}, state) do
+    true = :ets.delete(@table_name, {context, key})
+    {:noreply, state}
   end
   
-  def handle_cast({:clear_context, context}, %{memories: memories} = state) do
-    {:noreply, %{state | memories: Map.delete(memories, context)}}
+  def handle_cast({:clear_context, context}, state) do
+    # Delete all entries for this context
+    :ets.match_delete(@table_name, {{context, :_}, :_})
+    {:noreply, state}
   end
   
   @impl true
-  def handle_call({:retrieve, context, key}, _from, %{memories: memories} = state) do
+  def handle_call({:retrieve, context, key}, _from, state) do
     result = 
-      case get_in(memories, [context, key]) do
-        nil -> :not_found
-        %{value: value} -> {:ok, value}
-      end
-    
-    {:reply, result, state}
-  end
-  
-  def handle_call({:get_context, context}, _from, %{memories: memories} = state) do
-    result = 
-      case Map.get(memories, context, %{}) do
-        context_memories when map_size(context_memories) > 0 ->
-          context_memories
-          |> Enum.map(fn {key, %{value: value} = meta} -> 
-            {key, value, Map.drop(meta, [:value])}
-          end)
-          |> Enum.sort_by(
-            fn {_key, _value, %{timestamp: ts, importance: imp}} -> 
-              # Sort by recency and importance
-              DateTime.to_unix(ts) * imp
-            end,
-            :desc
-          )
+      case :ets.lookup(@table_name, {context, key}) do
+        [{{^context, ^key}, %{value: value, expires_at: expires_at}}] ->
+          # Check if the entry has expired
+          if expires_at == :infinity or DateTime.compare(DateTime.utc_now(), expires_at) == :lt do
+            {:ok, value}
+          else
+            # Entry has expired, clean it up
+            :ets.delete(@table_name, {context, key})
+            :not_found
+          end
         _ ->
-          []
+          :not_found
       end
     
     {:reply, result, state}
   end
   
-  def handle_call({:search, query, threshold, limit}, _from, %{memories: memories} = state) do
-    # Simple string similarity search (can be enhanced with more sophisticated NLP)
-    results = 
-      memories
-      |> Enum.flat_map(fn {context, context_memories} ->
-        Enum.map(context_memories, fn {key, %{value: value} = meta} ->
-          score = jaccard_similarity(query, to_string(key) <> " " <> to_string(value))
-          {context, key, value, score, meta}
-        end)
+  def handle_call({:get_context, context}, _from, state) do
+    now = DateTime.utc_now()
+    
+    # Match all entries for this context
+    result = 
+      :ets.match_object(@table_name, {{context, :_}, :_})
+      |> Enum.filter(fn {{_ctx, _key}, %{expires_at: expires_at}} ->
+          expires_at == :infinity or DateTime.compare(now, expires_at) == :lt
       end)
-      |> Enum.filter(fn {_c, _k, _v, score, _m} -> score >= threshold end)
+      |> Enum.map(fn {{_ctx, key}, %{value: value} = meta} ->
+          {key, value, Map.drop(meta, [:value, :expires_at])}
+      end)
+      |> Enum.sort_by(
+        fn {_key, _value, %{timestamp: ts, importance: imp}} -> 
+          # Sort by recency and importance
+          DateTime.to_unix(ts) * imp
+        end,
+        :desc
+      )
+    
+    {:reply, result, state}
+  end
+  
+  def handle_call({:search, query, threshold, limit}, _from, state) do
+    now = DateTime.utc_now()
+    
+    results = 
+      :ets.match_object(@table_name, {:_, :_})
+      |> Enum.filter(fn {{_ctx, _key}, %{expires_at: expires_at}} ->
+          expires_at == :infinity or DateTime.compare(now, expires_at) == :lt
+      end)
+      |> Enum.flat_map(fn {{context, key}, %{value: value} = meta} ->
+        score = jaccard_similarity(query, to_string(key) <> " " <> to_string(value))
+        if score >= threshold do
+          [{context, key, value, score, meta}]
+        else
+          []
+        end
+      end)
       |> Enum.sort_by(fn {_c, _k, _v, score, _m} -> -score end)
       |> Enum.take(limit)
       |> Enum.map(fn {context, k, v, score, _m} -> {context, k, v, score} end)
