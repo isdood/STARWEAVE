@@ -6,6 +6,26 @@
 
 This document outlines the four-phase plan to implement user authentication and database functionality for STARWEAVE. The system will allow for user-specific context while maintaining the ability to learn from aggregated, non-sensitive data across users.
 
+## Project Structure
+
+```
+apps/
+├── starweave_core/          # Core business logic and schemas
+│   ├── lib/starweave_core/
+│   │   ├── accounts/       # User accounts and authentication
+│   │   └── memories/       # Memory system with user context
+│   └── priv/repo/          # Database migrations
+│
+├── starweave_web/          # Phoenix web interface
+│   ├── lib/starweave_web/
+│   │   ├── controllers/    # Web controllers
+│   │   └── templates/      # Web templates
+│   └── router.ex           # Web routes
+│
+└── starweave_api/          # Future API (placeholder)
+    └── README.md           # API structure documentation
+```
+
 ## Phase 1: User Authentication
 
 ### Goals
@@ -15,27 +35,61 @@ This document outlines the four-phase plan to implement user authentication and 
 
 ### Implementation Steps
 1. **Dependencies**
-   - Add `ueberauth` and `ueberauth_google` to `mix.exs`
-   - Configure Google OAuth credentials
+   - Add `ueberauth` and `ueberauth_google` to `starweave_web/mix.exs`
+   - Configure Google OAuth credentials in `config/config.exs`
 
-2. **User Schema**
+2. **Core User Schema** (`starweave_core/lib/starweave_core/accounts/user.ex`)
    ```elixir
-   users
-   - id (uuid, primary key)
-   - google_id (string, unique)
-   - email (string, unique)
-   - name (string)
-   - avatar_url (string)
-   - is_admin (boolean, default: false)
-   - preferences (jsonb, for future use)
-   - inserted_at (utc_datetime)
-   - updated_at (utc_datetime)
+   defmodule StarweaveCore.Accounts.User do
+     use Ecto.Schema
+     import Ecto.Changeset
+
+     @primary_key {:id, :binary_id, autogenerate: true}
+     @foreign_key_type :binary_id
+     
+     schema "users" do
+       field :google_id, :string
+       field :email, :string
+       field :name, :string
+       field :avatar_url, :string
+       field :is_admin, :boolean, default: false
+       
+       # Authentication
+       field :token, :string
+       
+       # Timestamps
+       timestamps()
+     end
+
+     def changeset(user, attrs) do
+       user
+       |> cast(attrs, [:google_id, :email, :name, :avatar_url, :is_admin, :token])
+       |> validate_required([:google_id, :email])
+       |> unique_constraint(:google_id)
+       |> unique_constraint(:email)
+     end
+   end
    ```
 
-3. **Routes**
-   - `GET /auth/google` - Initiate Google OAuth
-   - `GET /auth/google/callback` - OAuth callback
-   - `DELETE /sessions` - Logout
+3. **Auth Context** (`starweave_core/lib/starweave_core/accounts/auth.ex`)
+   - OAuth callback handling
+   - Session management
+   - User lookup and creation
+
+4. **Web Routes** (`starweave_web/lib/starweave_web/router.ex`)
+   ```elixir
+   scope "/", StarweaveWeb do
+     # Authentication routes
+     get "/auth/google", AuthController, :request
+     get "/auth/google/callback", AuthController, :callback
+     delete "/sessions", SessionController, :delete
+   end
+   ```
+
+5. **Auth Controller** (`starweave_web/lib/starweave_web/controllers/auth_controller.ex`)
+   - Handle OAuth callbacks
+   - Create/update user sessions
+   - Redirect after authentication
 
 ## Phase 2: Database Integration
 
@@ -43,6 +97,18 @@ This document outlines the four-phase plan to implement user authentication and 
 - Set up PostgreSQL database
 - Create necessary tables
 - Implement data access layer
+
+### Core Database Setup
+
+1. **Migrations** (`starweave_core/priv/repo/migrations/`)
+   - Create users table
+   - Add indexes for common queries
+   - Set up extensions (like UUID)
+
+2. **Repository** (`starweave_core/lib/starweave_core/repo.ex`)
+   - Configure Ecto repository
+   - Set up connection pooling
+   - Add telemetry events
 
 ### Database Schema
 
@@ -141,6 +207,28 @@ memories
 - Implement proper error handling and logging
 - Add metrics for monitoring performance
 - Document all public APIs
+
+## Future API Structure (Placeholder)
+
+The `starweave_api` app will be implemented in the future to provide a REST/GraphQL interface. The structure will follow:
+
+```
+starweave_api/
+├── lib/starweave_api/
+│   ├── controllers/        # API controllers
+│   ├── plugs/             # Authentication and other plugs
+│   ├── schemas/           # JSON schemas
+│   ├── router.ex          # API routes
+│   └── endpoint.ex        # API endpoint configuration
+└── test/                  # API tests
+```
+
+Key considerations for the future API:
+- Token-based authentication
+- Rate limiting
+- Versioning
+- Comprehensive documentation
+- OpenAPI/Swagger support
 
 ## Security Considerations
 
