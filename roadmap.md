@@ -141,8 +141,9 @@ STARWEAVE/
 - [x] Implement pattern-based learning
 - [x] Create feedback mechanisms
 - [x] Implement web dashboard for ETS persistent storage for memories (completed but not polished)
-- [ ] Implement system to transfer ETS memories to disk based storage for true persistence
+- [x] Implement system to transfer ETS memories to disk based storage for true persistence
 - [ ] Add self-modification capabilities
+- [ ] Add persistent existence; Allow system to learn (for example by scraping the web or reading books) & self-modify as a background process, even when not interacting with a user
 
 ### Advanced Features
 - [ ] Implement multi-modal processing
