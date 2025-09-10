@@ -14,20 +14,20 @@ DIST_MIN=9000
 DIST_MAX=9100
 
 echo "Starting STARWEAVE Worker Node on $HOSTNAME..."
-echo "Will connect to main node: $MAIN_NODE"
+echo "Will attempt to connect to main node: $MAIN_NODE"
 
-# Start the Erlang node with distribution settings
-erl \
-  -sname $NODE_NAME \
-  -setcookie $COOKIE \
-  -kernel inet_dist_listen_min $DIST_MIN \
-  -kernel inet_dist_listen_max $DIST_MAX \
-  -eval 'io:format("Worker node started. To connect to main node, run: net_adm:ping(\'$MAIN_NODE\').").' \
-  -s init stop
+# Create a temporary .exs file for startup commands
+cat > /tmp/worker_connect.exs << 'EOF'
+IO.puts("\nWorker node started.")
+IO.puts("\nTo connect to the main node, run in this IEx session:")
+IO.puts("  Node.connect(String.to_atom(\"main@STARCORE\"))")
+IO.puts("  Node.list()  # Should show the main node if connected")
+EOF
 
-# After the Erlang shell exits, start the IEx session with the same settings
+# Start the IEx session with distribution settings
+echo "Starting IEx with distribution settings..."
+ELIXIR_ERL_OPTIONS="-kernel inet_dist_listen_min $DIST_MIN inet_dist_listen_max $DIST_MAX" \
 iex \
   --sname $NODE_NAME \
   --cookie $COOKIE \
-  --erl "-kernel inet_dist_listen_min $DIST_MIN inet_dist_listen_max $DIST_MAX" \
-  -S mix
+  -S mix run /tmp/worker_connect.exs
