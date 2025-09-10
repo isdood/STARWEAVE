@@ -11,16 +11,32 @@ HTTP_PORT=4000
 
 # Set distribution ports
 DIST_MIN=9000
-DST_MAX=9100
+DIST_MAX=9100
 
 echo "Starting STARWEAVE Main Node on $HOSTNAME..."
 echo "HTTP server will be available on port $HTTP_PORT"
 
-# Start the Erlang node with distribution settings
+echo "Starting Erlang distribution node..."
+# Start the Erlang node with distribution settings in the background
+(
+  erl \
+    -sname $NODE_NAME \
+    -setcookie $COOKIE \
+    -kernel inet_dist_listen_min $DIST_MIN \
+    -kernel inet_dist_listen_max $DIST_MAX \
+    -eval 'io:format("Main node started. Waiting for connections...").' \
+    -s init stop &
+)
+
+# Give the Erlang node a moment to start
+sleep 2
+
+echo "Starting Phoenix web server..."
+# Start the Phoenix web server
 iex \
-  --sname $NODE_NAME \
+  --sname ${NODE_NAME}_web \
   --cookie $COOKIE \
-  --erl "-kernel inet_dist_listen_min $DIST_MIN inet_dist_listen_max $DST_MAX" \
+  --erl "-kernel inet_dist_listen_min $DIST_MIN inet_dist_listen_max $DIST_MAX" \
   -S mix phx.server \
   --http-port $HTTP_PORT
 
