@@ -106,44 +106,83 @@ defmodule DistributedProcessingTest do
     end
   end
   
+  defp ensure_worker_connection do
+    # Try to connect to the known worker node
+    worker_node = :"worker@001-LITE"
+    
+    # Skip if already connected
+    if worker_node in Node.list() do
+      IO.puts("✅ Already connected to worker node: #{worker_node}")
+      :ok
+    else
+      IO.puts("🔌 Attempting to connect to worker node: #{worker_node}")
+      case Node.connect(worker_node) do
+        true -> 
+          IO.puts("✅ Successfully connected to worker node: #{worker_node}")
+          :ok
+        false ->
+          IO.puts("❌ Failed to connect to worker node: #{worker_node}")
+          :error
+      end
+    end
+  end
+
   defp test_basic_distribution do
     IO.puts("Submitting a simple task to be processed by any available worker...")
     
-    task = fn data ->
-      # Simulate some work
-      Process.sleep(1000)
-      {:ok, "Processed by #{inspect(node())} with data: #{data}"}
-    end
-    
-    available_nodes = [node() | Node.list()]
-    IO.puts("Available nodes: #{inspect(available_nodes)}")
-    
-    # If no other nodes are available, add a warning
-    if length(available_nodes) <= 1 do
-      IO.puts("⚠️  No worker nodes available. Will use the current node.")
-    end
-    
-    case StarweaveCore.Distributed.TaskDistributor.submit_task("test_data", task, distributed: true) do
-      {:ok, result} ->
-        IO.puts("✅ Task completed successfully!")
-        IO.puts("   Result: #{inspect(result)}")
+    # First ensure we're connected to worker nodes
+    case ensure_worker_connection() do
+      :ok ->
+        # Get all connected nodes, excluding the current node
+        worker_nodes = Node.list()
+        available_nodes = [node() | worker_nodes]
         
-      {:error, reason} ->
-        IO.puts("❌ Task failed: #{inspect(reason)}")
+        IO.puts("\n📡 Available nodes: #{inspect(available_nodes)}")
         
-        # If the task failed due to no worker nodes, try running it locally
-        if reason == :no_workers_available do
-          IO.puts("⚠️  No worker nodes available. Trying local execution...")
+        task = fn data ->
+          # Simulate some work
+          Process.sleep(1000)
+          {:ok, "Processed by #{inspect(node())} with data: #{data}"}
+        end
+        
+        # Try distributed execution first if we have workers
+        if worker_nodes != [] do
+          IO.puts("\n🚀 Testing distributed task execution...")
           
-          case StarweaveCore.Distributed.TaskDistributor.submit_task("test_data", task, distributed: false) do
+          case StarweaveCore.Distributed.TaskDistributor.submit_task("test_data", task, distributed: true) do
             {:ok, result} ->
-              IO.puts("✅ Local task completed successfully!")
+              IO.puts("✅ Distributed task completed successfully!")
               IO.puts("   Result: #{inspect(result)}")
               
             {:error, reason} ->
-              IO.puts("❌ Local task also failed: #{inspect(reason)}")
+              IO.puts("❌ Distributed task failed: #{inspect(reason)}")
+              IO.puts("\n🔄 Falling back to local execution...")
+              run_local_task(task)
           end
+        else
+          IO.puts("\n⚠️  No worker nodes available for distributed execution.")
+          run_local_task(task)
         end
+        
+      :error ->
+        IO.puts("\n⚠️  Could not connect to any worker nodes. Using local execution only.")
+        run_local_task(fn data ->
+          # Simulate some work
+          Process.sleep(1000)
+          {:ok, "Processed locally by #{inspect(node())} with data: #{data}"}
+        end)
+    end
+  end
+  
+  defp run_local_task(task) do
+    IO.puts("\n🏠 Testing local task execution...")
+    case StarweaveCore.Distributed.TaskDistributor.submit_task("test_data", task, distributed: false) do
+      {:ok, result} ->
+        IO.puts("✅ Local task completed successfully!")
+        IO.puts("   Result: #{inspect(result)}")
+        
+      {:error, reason} ->
+        IO.puts("❌ Local task failed: #{inspect(reason)}")
     end
   end
   
@@ -186,43 +225,57 @@ defmodule DistributedProcessingTest do
   defp test_worker_availability do
     IO.puts("Checking worker availability...")
     
-    # Get list of connected nodes
-    workers = [node() | Node.list()]
+    # Get list of connected nodes (including the current node)
+    workers = Node.list()
     IO.puts("Available workers: #{inspect(workers)}")
     
-    # Test each worker
+    # Test each worker node
     Enum.each(workers, fn worker ->
-      IO.puts("\nSending task to #{inspect(worker)}...")
+      IO.puts("\nTesting worker: #{inspect(worker)}")
       
-      task = fn _data ->
-        # Simple task that returns the node it's running on
-        {:ok, "Hello from #{inspect(node())}"}
-      end
+      # Define a simple function as a string that we'll evaluate on the remote node
+      # Note: We use node() inside the string so it's evaluated on the remote node
+      task_code = """
+      # This will be evaluated on the remote node
+      Process.sleep(500)
+      # Return the node name where this task is running
+      "Task executed on " <> inspect(node())
+      """
       
-      # Try to run the task on the worker node
-      case Node.ping(worker) do
-        :pong ->
-          # Node is alive, try to run the task
-          result = :rpc.call(worker, Task, :async, [fn -> task.("test") end])
-                  |> Task.await(5000)  # Wait up to 5 seconds for the task to complete
-                  
-          case result do
-            {:ok, message} ->
-              IO.puts("✅ Response from #{inspect(worker)}: #{inspect(message)}")
-              
-            error ->
-              IO.puts("❌ Task on #{inspect(worker)} failed: #{inspect(error)}")
-          end
+      # Try to run the task on the worker node using :rpc.call with string evaluation
+      IO.puts("  ↳ Sending task to #{inspect(worker)}...")
+      
+      # Use :rpc.call to evaluate the code directly on the remote node
+      case :rpc.call(worker, Code, :eval_string, [task_code], 5000) do
+        {:badrpc, reason} ->
+          IO.puts("  ❌ RPC call to #{inspect(worker)} failed: #{inspect(reason)}")
           
-        :pang ->
-          IO.puts("❌ Node #{inspect(worker)} is not reachable")
+        {result, _bindings} ->
+          # The result is a tuple with the evaluation result and bindings
+          IO.puts("  ✅ Task result from #{inspect(worker)}: #{inspect(result)}")
           
-        other ->
-          IO.puts("❌ Unexpected response pinging #{inspect(worker)}: #{inspect(other)}")
+        result ->
+          # Handle any other result format
+          IO.puts("  ✅ Task result from #{inspect(worker)}: #{inspect(result)}")
       end
     end)
+    
+    # Test local execution
+    IO.puts("\nTesting local execution on #{inspect(node())}...")
+    local_result = 
+      try do
+        # Same task as above but executed locally
+        Process.sleep(500)
+        "Task executed locally on #{inspect(node())}"
+      rescue
+        e -> {:error, Exception.message(e)}
+      end
+    
+    IO.puts("  ✅ Local task result: #{inspect(local_result)}")
   end
 end
 
-# Run the tests
-DistributedProcessingTest.run_test()
+# Run the tests if this file is executed directly
+if Mix.env() != :test do
+  DistributedProcessingTest.run_test()
+end
