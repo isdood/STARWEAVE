@@ -91,7 +91,7 @@ STARWEAVE/
 - Advanced forgetting mechanisms based on usage patterns
 
 ### Distributed Architecture (Weeks 7-8)
-- [ ] Distributed testing will be done with one PC featuring a CPU and AMD GPU, while another PC will feature only an Intel CPU. However, we may simulate the distributed environment at first as testing will be done quicker this way.
+- [ ] Distributed testing will be done with one PC featuring a CPU and AMD GPU, while another PC will feature only an Intel CPU. We'll want to practically test distributed processing is working, specifically when using the web interface.
 - *Note: We have connected two Elixir nodes via Erlang distribution. Work is in progress to implement distributed pattern processing & overall job distribution.*
 
 

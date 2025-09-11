@@ -18,14 +18,25 @@ echo "Will attempt to connect to main node: $MAIN_NODE"
 
 # Create a temporary .exs file for startup commands
 cat > /tmp/worker_connect.exs << 'EOF'
-IO.puts("\nWorker node started.")
-IO.puts("\nTo connect to the main node, run in this IEx session:")
-IO.puts("  Node.connect(String.to_atom(\"main@STARCORE\"))")
-IO.puts("  Node.list()  # Should show the main node if connected")
+# Attempt to connect to the main node
+IO.puts("\nWorker node started. Attempting to connect to main node at #{System.get_env("MAIN_NODE")}...")
+
+case Node.connect(String.to_atom(System.get_env("MAIN_NODE"))) do
+  true -> 
+    IO.puts("✅ Successfully connected to #{System.get_env("MAIN_NODE")}")
+    IO.puts("Connected nodes: #{inspect(Node.list())}")
+  false -> 
+    IO.puts("❌ Failed to connect to #{System.get_env("MAIN_NODE")}")
+    IO.puts("Please ensure the main node is running and accessible")
+end
+
+# Start an interactive shell
+IO.puts("\nInteractive shell ready. You can check node connections with Node.list()")
 EOF
 
 # Start the IEx session with distribution settings
 echo "Starting IEx with distribution settings..."
+export MAIN_NODE="$MAIN_NODE"
 ELIXIR_ERL_OPTIONS="-kernel inet_dist_listen_min $DIST_MIN inet_dist_listen_max $DIST_MAX" \
 iex \
   --sname $NODE_NAME \
