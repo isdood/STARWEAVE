@@ -26,11 +26,21 @@ defmodule WorkerNode do
     IO.puts("Starting distributed components...")
     {:ok, _} = Application.ensure_all_started(:starweave_core)
 
-    # Start the Task.Supervisor
-    {:ok, _} = Task.Supervisor.start_link(name: StarweaveCore.Distributed.TaskSupervisor)
+    # Start the Task.Supervisor with proper error handling
+    case Task.Supervisor.start_link(name: StarweaveCore.Distributed.TaskSupervisor) do
+      {:ok, _} -> :ok
+      {:error, {:already_started, _}} -> :ok
+      error -> error
+    end
     
-    # Start the TaskDistributor
-    {:ok, _} = StarweaveCore.Distributed.TaskDistributor.start_link(name: StarweaveCore.Distributed.TaskDistributor)
+    # Start the TaskDistributor with proper error handling
+    case StarweaveCore.Distributed.TaskDistributor.start_link(name: StarweaveCore.Distributed.TaskDistributor) do
+      {:ok, _} -> :ok
+      {:error, {:already_started, _}} -> 
+        IO.puts("TaskDistributor already running, continuing...")
+        :ok
+      error -> error
+    end
     
     # Connect to the main node
     connect_to_main()
@@ -48,6 +58,7 @@ defmodule WorkerNode do
         IO.puts("Connected nodes: #{inspect(Node.list())}")
         
         # Register with the main node's TaskDistributor
+        :rpc.call(main_node, StarweaveCore.Distributed.TaskDistributor, :register_worker, [Node.self()])
         case :rpc.call(main_node, StarweaveCore.Distributed.TaskDistributor, :register_worker, [node()]) do
           :ok ->
             IO.puts("✅ Registered as worker with TaskDistributor on #{inspect(main_node)}")

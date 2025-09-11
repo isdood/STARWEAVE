@@ -12,6 +12,20 @@ defmodule StarweaveCore.Distributed.TaskDistributor do
   # Client API
 
   @doc """
+  Registers a worker node with the TaskDistributor.
+  
+  ## Parameters
+    * `worker_node` - The node name of the worker to register
+    * `opts` - Options
+      * `:name` - The name of the TaskDistributor process
+  """
+  @spec register_worker(node(), keyword()) :: :ok | {:error, term()}
+  def register_worker(worker_node, opts \\ []) when is_atom(worker_node) do
+    name = Keyword.get(opts, :name, __MODULE__)
+    GenServer.call(name, {:register_worker, worker_node})
+  end
+
+  @doc """
   Starts the TaskDistributor process.
   """
   @spec start_link(keyword()) :: GenServer.on_start()
@@ -180,14 +194,33 @@ defmodule StarweaveCore.Distributed.TaskDistributor do
   end
 
   @impl true
+  def handle_call({:register_worker, worker_node}, _from, %State{nodes: nodes} = state) do
+    if worker_node in nodes do
+      {:reply, :ok, state}
+    else
+      new_nodes = [worker_node | nodes]
+      Logger.info("Registered worker node: #{inspect(worker_node)}")
+      {:reply, :ok, %{state | nodes: new_nodes}}
+    end
+  end
+
+  @impl true
   def handle_call({:task_status, task_ref}, _from, %State{tasks: tasks} = state) do
     case Map.get(tasks, task_ref) do
-      %{status: :completed} -> {:reply, {:ok, :completed}, state}
-      %{status: :pending} -> {:reply, {:ok, :pending}, state}
-      %{status: :failed} -> {:reply, {:ok, :failed}, state}
-      %{status: {:completed, _result}} -> {:reply, {:ok, :completed}, state}
-      %{status: :done} -> {:reply, {:ok, :completed}, state}
-      nil -> {:reply, {:error, :not_found}, state}
+      nil -> 
+        {:reply, {:error, :not_found}, state}
+      %{status: :completed} -> 
+        {:reply, {:ok, :completed}, state}
+      %{status: :pending} -> 
+        {:reply, {:ok, :pending}, state}
+      %{status: :failed} -> 
+        {:reply, {:ok, :failed}, state}
+      %{status: {:completed, _result}} -> 
+        {:reply, {:ok, :completed}, state}
+      %{status: :done} -> 
+        {:reply, {:ok, :completed}, state}
+      _ -> 
+        {:reply, {:error, :not_found}, state}
     end
   end
 
