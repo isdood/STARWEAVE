@@ -14,6 +14,7 @@ defmodule StarweaveCore.Distributed.PatternProcessor do
   ## Options
     * `:name` - The name to register the process under (default: `__MODULE__`)
     * `:task_timeout` - Maximum time to wait for task completion (default: 30_000)
+    * `:task_supervisor` - The name of the Task.Supervisor to use (default: `Task.Supervisor`)
   """
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
@@ -40,6 +41,25 @@ defmodule StarweaveCore.Distributed.PatternProcessor do
     timeout = Keyword.get(opts, :timeout, :infinity)
     GenServer.call(name, {:process_pattern, pattern}, timeout)
   end
+
+  @doc """
+  Registers a pattern processor function.
+  
+  ## Parameters
+    * `pattern_name` - The name to register the pattern processor under
+    * `fun` - A 1-arity function that processes the pattern
+    * `opts` - Options
+      * `:name` - The name of the PatternProcessor process
+  
+  ## Returns
+    * `:ok` if registration was successful
+    * `{:error, reason}` if registration failed
+  """
+  @spec register_pattern_processor(term(), (term() -> term()), keyword()) :: :ok | {:error, term()}
+  def register_pattern_processor(pattern_name, fun, opts \\ []) when is_function(fun, 1) do
+    name = Keyword.get(opts, :name, __MODULE__)
+    GenServer.call(name, {:register_processor, pattern_name, fun})
+  end
   
   # Server Callbacks
   
@@ -48,8 +68,10 @@ defmodule StarweaveCore.Distributed.PatternProcessor do
     defstruct [
       tasks: %{},
       results: %{},
+      pattern_processors: %{},
       task_timeout: 30_000,
-      name: nil
+      name: nil,
+      task_supervisor: Task.Supervisor
     ]
   end
   
@@ -57,10 +79,38 @@ defmodule StarweaveCore.Distributed.PatternProcessor do
   def init(opts) do
     state = %State{
       task_timeout: Keyword.get(opts, :task_timeout, 30_000),
-      name: Keyword.get(opts, :name, __MODULE__)
+      name: Keyword.get(opts, :name, __MODULE__),
+      task_supervisor: Keyword.get(opts, :task_supervisor, Task.Supervisor)
     }
     
     {:ok, state}
+  end
+  
+  @impl true
+  def handle_call({:register_processor, pattern_name, fun}, _from, %{pattern_processors: processors} = state) do
+    if Map.has_key?(processors, pattern_name) do
+      {:reply, {:error, :already_registered}, state}
+    else
+      {:reply, :ok, %{state | pattern_processors: Map.put(processors, pattern_name, fun)}}
+    end
+  end
+  
+  @impl true
+  def handle_call({:process_pattern, pattern}, _from, %{pattern_processors: processors} = state) do
+    case processors do
+      %{^pattern => processor} ->
+        try do
+          result = processor.(pattern)
+          {:reply, {:ok, result}, state}
+        catch
+          kind, reason ->
+            stacktrace = __STACKTRACE__
+            Logger.error("Pattern processing failed: #{inspect(kind)} - #{inspect(reason)}\n#{Exception.format_stacktrace(stacktrace)}")
+            {:reply, {:error, reason}, state}
+        end
+      _ ->
+        {:reply, {:error, :no_such_processor}, state}
+    end
   end
   
   @impl true

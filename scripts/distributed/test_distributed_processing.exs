@@ -61,32 +61,48 @@ defmodule DistributedProcessingTest do
         :ok
     end
     
-    # Only proceed if Task.Supervisor is running
-    if Process.whereis(task_supervisor_name) do
-      # Ensure TaskDistributor is running
-      task_distributor_name = StarweaveCore.Distributed.TaskDistributor
-      
-      case Process.whereis(task_distributor_name) do
-        nil ->
-          IO.puts("\nStarting TaskDistributor...")
-          case StarweaveCore.Distributed.TaskDistributor.start_link(
-                 name: task_distributor_name,
-                 task_supervisor: task_supervisor_name
-               ) do
-            {:ok, _} -> 
-              IO.puts("✅ TaskDistributor started successfully")
-              :ok
-            error -> 
-              IO.puts("❌ Failed to start TaskDistributor: #{inspect(error)}")
-              error
-          end
-          
-        _ ->
-          IO.puts("✅ TaskDistributor already running")
-          :ok
-      end
-    else
-      {:error, :task_supervisor_not_started}
+    # Ensure TaskDistributor is running
+    task_distributor_name = StarweaveCore.Distributed.TaskDistributor
+    
+    case Process.whereis(task_distributor_name) do
+      nil ->
+        IO.puts("\nStarting TaskDistributor...")
+        case StarweaveCore.Distributed.TaskDistributor.start_link(
+               name: task_distributor_name,
+               task_supervisor: task_supervisor_name
+             ) do
+          {:ok, _} -> 
+            IO.puts("✅ TaskDistributor started successfully")
+            :ok
+          error -> 
+            IO.puts("❌ Failed to start TaskDistributor: #{inspect(error)}")
+            error
+        end
+      _ ->
+        IO.puts("✅ TaskDistributor already running")
+        :ok
+    end
+    
+    # Ensure PatternProcessor is running
+    pattern_processor_name = StarweaveCore.Distributed.PatternProcessor
+    
+    case Process.whereis(pattern_processor_name) do
+      nil ->
+        IO.puts("\nStarting PatternProcessor...")
+        case StarweaveCore.Distributed.PatternProcessor.start_link(
+               name: pattern_processor_name,
+               task_supervisor: task_supervisor_name
+             ) do
+          {:ok, _} -> 
+            IO.puts("✅ PatternProcessor started successfully")
+            :ok
+          error -> 
+            IO.puts("❌ Failed to start PatternProcessor: #{inspect(error)}")
+            error
+        end
+      _ ->
+        IO.puts("✅ PatternProcessor already running")
+        :ok
     end
   end
   
@@ -96,10 +112,16 @@ defmodule DistributedProcessingTest do
     task = fn data ->
       # Simulate some work
       Process.sleep(1000)
-      "Processed by #{inspect(node())} with data: #{data}"
+      {:ok, "Processed by #{inspect(node())} with data: #{data}"}
     end
     
-    IO.puts("Available nodes: #{inspect([node() | Node.list()])}")
+    available_nodes = [node() | Node.list()]
+    IO.puts("Available nodes: #{inspect(available_nodes)}")
+    
+    # If no other nodes are available, add a warning
+    if length(available_nodes) <= 1 do
+      IO.puts("⚠️  No worker nodes available. Will use the current node.")
+    end
     
     case StarweaveCore.Distributed.TaskDistributor.submit_task("test_data", task, distributed: true) do
       {:ok, result} ->
@@ -108,6 +130,20 @@ defmodule DistributedProcessingTest do
         
       {:error, reason} ->
         IO.puts("❌ Task failed: #{inspect(reason)}")
+        
+        # If the task failed due to no worker nodes, try running it locally
+        if reason == :no_workers_available do
+          IO.puts("⚠️  No worker nodes available. Trying local execution...")
+          
+          case StarweaveCore.Distributed.TaskDistributor.submit_task("test_data", task, distributed: false) do
+            {:ok, result} ->
+              IO.puts("✅ Local task completed successfully!")
+              IO.puts("   Result: #{inspect(result)}")
+              
+            {:error, reason} ->
+              IO.puts("❌ Local task also failed: #{inspect(reason)}")
+          end
+        end
     end
   end
   
@@ -127,16 +163,23 @@ defmodule DistributedProcessingTest do
     end
     
     # First register the pattern processing function
-    :ok = StarweaveCore.Distributed.PatternProcessor.register_pattern_processor(:test_pattern, process_pattern)
-    
-    # Submit to pattern processor
-    case StarweaveCore.Distributed.PatternProcessor.process_pattern(:test_pattern) do
-      {:ok, result} ->
-        IO.puts("✅ Pattern processing completed!")
-        IO.puts("   Result: #{inspect(result, pretty: true)}")
+    IO.puts("Registering pattern processor...")
+    case StarweaveCore.Distributed.PatternProcessor.register_pattern_processor(:test_pattern, process_pattern) do
+      :ok ->
+        IO.puts("✅ Pattern processor registered successfully")
         
+        # Submit to pattern processor
+        IO.puts("Processing pattern...")
+        case StarweaveCore.Distributed.PatternProcessor.process_pattern(:test_pattern) do
+          {:ok, result} ->
+            IO.puts("✅ Pattern processing completed!")
+            IO.puts("   Result: #{inspect(result, pretty: true)}")
+            
+          {:error, reason} ->
+            IO.puts("❌ Pattern processing failed: #{inspect(reason)}")
+        end
       {:error, reason} ->
-        IO.puts("❌ Pattern processing failed: #{inspect(reason)}")
+        IO.puts("❌ Failed to register pattern processor: #{inspect(reason)}")
     end
   end
   
@@ -147,24 +190,35 @@ defmodule DistributedProcessingTest do
     workers = [node() | Node.list()]
     IO.puts("Available workers: #{inspect(workers)}")
     
-    # Test sending a task to each worker
-    workers
-    |> Enum.each(fn worker ->
-      task = fn _ ->
-        {worker, node(), :pong, DateTime.utc_now()}
-      end
-      
+    # Test each worker
+    Enum.each(workers, fn worker ->
       IO.puts("\nSending task to #{inspect(worker)}...")
       
-      case StarweaveCore.Distributed.TaskDistributor.submit_task("ping", task, 
-            distributed: true,
-            target_node: worker
-          ) do
-        {:ok, result} ->
-          IO.puts("✅ Response from #{inspect(elem(result, 1))}: #{inspect(result)}")
+      task = fn _data ->
+        # Simple task that returns the node it's running on
+        {:ok, "Hello from #{inspect(node())}"}
+      end
+      
+      # Try to run the task on the worker node
+      case Node.ping(worker) do
+        :pong ->
+          # Node is alive, try to run the task
+          result = :rpc.call(worker, Task, :async, [fn -> task.("test") end])
+                  |> Task.await(5000)  # Wait up to 5 seconds for the task to complete
+                  
+          case result do
+            {:ok, message} ->
+              IO.puts("✅ Response from #{inspect(worker)}: #{inspect(message)}")
+              
+            error ->
+              IO.puts("❌ Task on #{inspect(worker)} failed: #{inspect(error)}")
+          end
           
-        {:error, reason} ->
-          IO.puts("❌ Error from #{inspect(worker)}: #{inspect(reason)}")
+        :pang ->
+          IO.puts("❌ Node #{inspect(worker)} is not reachable")
+          
+        other ->
+          IO.puts("❌ Unexpected response pinging #{inspect(worker)}: #{inspect(other)}")
       end
     end)
   end

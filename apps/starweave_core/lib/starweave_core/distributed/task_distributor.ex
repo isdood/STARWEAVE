@@ -68,13 +68,18 @@ defmodule StarweaveCore.Distributed.TaskDistributor do
     
     if distributed do
       case GenServer.call(name, {:submit_task, input, fun, opts}, timeout) do
-        {:ok, ref} when return_ref -> {:ok, ref}
-        {:ok, _ref} -> 
-          # Wait for the task to complete
-          # For non-ref mode, we'll get the result via the task's reply
-          # The task will send a message to the caller directly
-          :ok
-        {:error, _} = error -> error
+        {:ok, ref} when return_ref -> 
+          {:ok, ref}
+        {:ok, ref} -> 
+          # Wait for the task to complete and get the result
+          receive do
+            {^ref, result} -> result
+          after
+            timeout -> 
+              {:error, :timeout}
+          end
+        {:error, _} = error -> 
+          error
       end
     else
       # Simple synchronous execution (like SimpleDistributor)
@@ -168,54 +173,43 @@ defmodule StarweaveCore.Distributed.TaskDistributor do
   end
 
   @impl true
-  def handle_call({:submit_task, input, fun, opts}, from, %State{task_supervisor: task_supervisor, tasks: tasks} = state) do
+  def handle_call({:submit_task, input, fun, _opts}, {from_pid, _ref} = _from, %State{task_supervisor: task_supervisor, tasks: tasks, task_monitors: task_monitors} = state) do
+    task_id = System.unique_integer([:positive, :monotonic])
     task_ref = make_ref()
-    return_ref = Keyword.get(opts, :return_ref, false)
     
-    # Create a unique reference for this task
-    task_monitor_ref = make_ref()
-    
-    # Start the task using the provided supervisor
+    # Start the task under the supervisor
     task = Task.Supervisor.async_nolink(task_supervisor, fn ->
       try do
+        # Execute the task function
         result = fun.(input)
-        {task_monitor_ref, {:completed, result}}
+        # Send the result back to the caller
+        send(from_pid, {task_ref, {:ok, result}})
+        result
       catch
         kind, reason ->
           stacktrace = __STACKTRACE__
-          Logger.error("Task failed: #{inspect(kind)} - #{inspect(reason)}\n#{Exception.format_stacktrace(stacktrace)}")
-          {task_monitor_ref, {:error, {kind, reason, stacktrace}}}
+          error = {kind, reason, stacktrace}
+          send(from_pid, {task_ref, {:error, error}})
+          :erlang.raise(kind, reason, stacktrace)
       end
     end)
     
-    # Monitor the task
-    monitor_ref = Process.monitor(task.pid)
-    
-    # Create the task data with all required fields
-    task_data = %{
-      task_ref: task_ref,
-      task_monitor_ref: task_monitor_ref,
-      from: from,
-      status: :pending,
-      node: node(),
-      started_at: System.monotonic_time(),
-      task: task,
-      monitor_ref: monitor_ref,
-      return_ref: return_ref
+    # Store task information
+    task_info = %{
+      id: task_id,
+      ref: task.ref,
+      pid: task.pid,
+      start_time: System.monotonic_time(),
+      caller: from_pid,
+      task_ref: task_ref
     }
     
-    # Update the tasks map
-    new_tasks = Map.put(tasks, task_ref, task_data)
+    # Update the state with the new task
+    new_tasks = Map.put(tasks, task_id, task_info)
+    new_monitors = Map.put(task_monitors, task.ref, task_id)
     
-    # If return_ref is true, reply immediately with the task reference
-    if return_ref do
-      # Set up a monitor to send the result to the caller
-      Process.send_after(self(), {:monitor_task, task_ref, from}, 100)
-      {:reply, {:ok, task_ref}, %{state | tasks: new_tasks}}
-    else
-      # Otherwise, we'll reply when the task completes
-      {:noreply, %{state | tasks: new_tasks}}
-    end
+    # Return the task reference to the caller
+    {:reply, {:ok, task_ref}, %{state | tasks: new_tasks, task_monitors: new_monitors}}
   end
 
   @impl true
