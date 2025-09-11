@@ -21,10 +21,43 @@ export PORT=$HTTP_PORT
 
 # Create a temporary .exs file for startup commands
 cat > /tmp/main_node_startup.exs << 'EOF'
-# Set the node name for better visibility
-Node.set_cookie(String.to_atom(System.get_env("COOKIE")))
+defmodule MainNode do
+  def start do
+    # Set the node name for better visibility
+    Node.set_cookie(String.to_atom(System.get_env("COOKIE")))
+    
+    # Start the distributed supervision tree
+    IO.puts("\n🌟 STARWEAVE Main Node Starting...")
+    IO.puts("==============================")
+    IO.puts("Node name:    #{inspect(Node.self())}")
+    IO.puts("Cookie:       #{inspect(Node.get_cookie())}")
+    IO.puts("Distribution: #{:net_kernel.nodename()}")
+    
+    # Start the distributed supervision tree
+    IO.puts("\nStarting distributed components...")
+    {:ok, _} = Application.ensure_all_started(:starweave_core)
+    
+    # Start the node monitor
+    {:ok, _} = NodeMonitor.start_link([])
+    
+    # Start the Task.Supervisor
+    {:ok, _} = Task.Supervisor.start_link(name: StarweaveCore.Distributed.TaskSupervisor)
+    
+    # Start the TaskDistributor
+    {:ok, _} = StarweaveCore.Distributed.TaskDistributor.start_link(name: StarweaveCore.Distributed.TaskDistributor)
+    
+    IO.puts("\n✅ Distributed components started successfully")
+    IO.puts("\nPhoenix web server is running...")
+    IO.puts("Web interface available at http://#{System.get_env("HOSTNAME")}:#{System.get_env("PORT")}")
+    IO.puts("\nWaiting for worker connections...")
+    IO.puts("Use Node.list() to see connected nodes")
+    IO.puts("Press Ctrl+C to stop")
+    
+    # Keep the node running
+    Process.sleep(:infinity)
+  end
+end
 
-# Function to list connected nodes with their status
 defmodule NodeMonitor do
   use GenServer
 
@@ -49,23 +82,10 @@ defmodule NodeMonitor do
   end
 end
 
-# Start the node monitor and Phoenix server
-IO.puts("\n🌟 STARWEAVE Main Node Starting...")
-IO.puts("==============================")
-IO.puts("Node name:    #{inspect(Node.self())}")
-IO.puts("Cookie:       #{inspect(Node.get_cookie())}")
-IO.puts("Distribution: #{:net_kernel.nodename()}")
+# Start the main node
+MainNode.start()
 
-# Start the node monitor
-{:ok, _} = NodeMonitor.start_link([])
-
-IO.puts("\nPhoenix web server is running...")
-IO.puts("Web interface available at http://#{System.get_env("HOSTNAME")}:#{System.get_env("PORT")}")
-IO.puts("\nWaiting for worker connections...")
-IO.puts("Use Node.list() to see connected nodes")
-IO.puts("Press Ctrl+C to stop")
-
-# Keep the node running
+# This will keep the node running until interrupted
 receive do
   _ -> :ok
 end

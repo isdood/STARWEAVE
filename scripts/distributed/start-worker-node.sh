@@ -18,33 +18,66 @@ echo "Will attempt to connect to main node: $MAIN_NODE"
 
 # Create a temporary .exs file for startup commands
 cat > /tmp/worker_connect.exs << 'EOF'
-# Attempt to connect to the main node
-IO.puts("\nWorker node started. Attempting to connect to main node at #{System.get_env("MAIN_NODE")}...")
+defmodule WorkerNode do
+  def start do
+    IO.puts("\nWorker node started. Attempting to connect to main node at #{System.get_env("MAIN_NODE")}...")
 
-# Start the distributed supervision tree
-IO.puts("Starting distributed components...")
-{:ok, _} = Application.ensure_all_started(:starweave_core)
+    # Start the distributed supervision tree
+    IO.puts("Starting distributed components...")
+    {:ok, _} = Application.ensure_all_started(:starweave_core)
 
-# Connect to the main node
-case Node.connect(String.to_atom(System.get_env("MAIN_NODE"))) do
-  true -> 
-    IO.puts("✅ Successfully connected to #{System.get_env("MAIN_NODE")}")
-    IO.puts("Connected nodes: #{inspect(Node.list())}")
+    # Start the Task.Supervisor
+    {:ok, _} = Task.Supervisor.start_link(name: StarweaveCore.Distributed.TaskSupervisor)
     
-    # Register with the main node's TaskDistributor
-    main_node = String.to_atom("main@STARCORE")
-    :rpc.call(main_node, StarweaveCore.Distributed.TaskDistributor, :register_worker, [node()])
-    IO.puts("✅ Registered as worker with TaskDistributor on #{inspect(main_node)}")
+    # Start the TaskDistributor
+    {:ok, _} = StarweaveCore.Distributed.TaskDistributor.start_link(name: StarweaveCore.Distributed.TaskDistributor)
     
-  false -> 
-    IO.puts("❌ Failed to connect to #{System.get_env("MAIN_NODE")}")
-    IO.puts("Please ensure the main node is running and accessible")
+    # Connect to the main node
+    connect_to_main()
+    
+    # Keep the node alive
+    Process.sleep(:infinity)
+  end
+  
+  defp connect_to_main do
+    main_node = String.to_atom(System.get_env("MAIN_NODE"))
+    
+    case Node.connect(main_node) do
+      true -> 
+        IO.puts("✅ Successfully connected to #{inspect(main_node)}")
+        IO.puts("Connected nodes: #{inspect(Node.list())}")
+        
+        # Register with the main node's TaskDistributor
+        case :rpc.call(main_node, StarweaveCore.Distributed.TaskDistributor, :register_worker, [node()]) do
+          :ok ->
+            IO.puts("✅ Registered as worker with TaskDistributor on #{inspect(main_node)}")
+            :ok
+          error ->
+            IO.puts("❌ Failed to register with TaskDistributor: #{inspect(error)}")
+            :error
+        end
+        
+      false -> 
+        IO.puts("❌ Failed to connect to #{inspect(main_node)}")
+        IO.puts("Retrying in 5 seconds...")
+        Process.sleep(5000)
+        connect_to_main()
+    end
+  end
 end
 
-# Start an interactive shell
-IO.puts("\nWorker node ready. You can check node connections with Node.list()")
-IO.puts("To test distributed processing, run on the main node:")
-IO.puts("  StarweaveCore.Distributed.TaskDistributor.submit_task(\"test\", fn x -> \"Processed: #{inspect(node())} got: \" <> x end, distributed: true)")
+# Start the worker node
+IO.puts("Starting STARWEAVE Worker Node...")
+IO.puts("Node name: #{inspect(Node.self())}")
+IO.puts("Cookie: #{inspect(Node.get_cookie())}")
+
+# Start the worker node
+WorkerNode.start()
+
+# This will keep the node running until interrupted
+receive do
+  _ -> :ok
+end
 EOF
 
 # Start the IEx session with distribution settings
