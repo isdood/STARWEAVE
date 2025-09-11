@@ -21,3 +21,7 @@ starweave_core-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Ignore working memory files for development
+/apps/starweave_web/priv/ets/
+*.ets
