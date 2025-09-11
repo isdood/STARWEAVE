@@ -9,44 +9,84 @@ defmodule DistributedProcessingTest do
     IO.puts("\n🚀 Testing Distributed Processing")
     IO.puts("==========================")
     
-    # Ensure TaskDistributor is running
-    ensure_distributed_components_started()
-    
-    # Test 1: Basic task distribution
-    IO.puts("\n🔍 Test 1: Basic Task Distribution")
-    IO.puts("----------------------------")
-    test_basic_distribution()
-    
-    # Test 2: Pattern processing
-    IO.puts("\n🔍 Test 2: Pattern Processing")
-    IO.puts("------------------------")
-    test_pattern_processing()
-    
-    # Test 3: Worker availability
-    IO.puts("\n🔍 Test 3: Worker Availability")
-    IO.puts("--------------------------")
-    test_worker_availability()
-    
-    IO.puts("\n✅ All tests completed!")
+    # Ensure all distributed components are running
+    case ensure_distributed_components_started() do
+      :ok ->
+        # Give the system a moment to stabilize
+        Process.sleep(500)
+        
+        # Test 1: Basic task distribution
+        IO.puts("\n🔍 Test 1: Basic Task Distribution")
+        IO.puts("----------------------------")
+        test_basic_distribution()
+        
+        # Test 2: Pattern processing
+        IO.puts("\n🔍 Test 2: Pattern Processing")
+        IO.puts("------------------------")
+        test_pattern_processing()
+        
+        # Test 3: Worker availability
+        IO.puts("\n🔍 Test 3: Worker Availability")
+        IO.puts("--------------------------")
+        test_worker_availability()
+        
+        IO.puts("\n✅ All tests completed!")
+        
+      error ->
+        IO.puts("\n❌ Failed to initialize distributed components: #{inspect(error)}")
+        IO.puts("Please ensure the main node and worker nodes are running")
+    end
   end
   
   defp ensure_distributed_components_started do
+    IO.puts("\n🔧 Initializing distributed components...")
+    
     # Ensure Task.Supervisor is running
-    case Process.whereis(StarweaveCore.Distributed.TaskSupervisor) do
+    task_supervisor = Task.Supervisor
+    task_supervisor_name = StarweaveCore.Distributed.TaskSupervisor
+    
+    case Process.whereis(task_supervisor_name) do
       nil ->
         IO.puts("Starting Task.Supervisor...")
-        {:ok, _} = Task.Supervisor.start_link(name: StarweaveCore.Distributed.TaskSupervisor)
+        case Task.Supervisor.start_link(name: task_supervisor_name) do
+          {:ok, _} -> 
+            IO.puts("✅ Task.Supervisor started successfully")
+            :ok
+          error -> 
+            IO.puts("❌ Failed to start Task.Supervisor: #{inspect(error)}")
+            error
+        end
       _ ->
+        IO.puts("✅ Task.Supervisor already running")
         :ok
     end
     
-    # Ensure TaskDistributor is running
-    case Process.whereis(StarweaveCore.Distributed.TaskDistributor) do
-      nil ->
-        IO.puts("Starting TaskDistributor...")
-        {:ok, _} = StarweaveCore.Distributed.TaskDistributor.start_link(name: StarweaveCore.Distributed.TaskDistributor)
-      _ ->
-        :ok
+    # Only proceed if Task.Supervisor is running
+    if Process.whereis(task_supervisor_name) do
+      # Ensure TaskDistributor is running
+      task_distributor_name = StarweaveCore.Distributed.TaskDistributor
+      
+      case Process.whereis(task_distributor_name) do
+        nil ->
+          IO.puts("\nStarting TaskDistributor...")
+          case StarweaveCore.Distributed.TaskDistributor.start_link(
+                 name: task_distributor_name,
+                 task_supervisor: task_supervisor_name
+               ) do
+            {:ok, _} -> 
+              IO.puts("✅ TaskDistributor started successfully")
+              :ok
+            error -> 
+              IO.puts("❌ Failed to start TaskDistributor: #{inspect(error)}")
+              error
+          end
+          
+        _ ->
+          IO.puts("✅ TaskDistributor already running")
+          :ok
+      end
+    else
+      {:error, :task_supervisor_not_started}
     end
   end
   

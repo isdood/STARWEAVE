@@ -27,6 +27,11 @@ defmodule StarweaveCore.Distributed.TaskDistributor do
 
   @doc """
   Starts the TaskDistributor process.
+  
+  ## Options
+    * `:name` - The name to register the process under
+    * `:task_supervisor` - The name of the Task.Supervisor to use (default: Task.Supervisor)
+    * `:task_timeout` - Default timeout for tasks in milliseconds (default: 30000)
   """
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
@@ -106,6 +111,8 @@ defmodule StarweaveCore.Distributed.TaskDistributor do
       tasks: %{},
       nodes: [],
       node_load: %{},
+      task_callers: %{},
+      task_monitors: %{},
       task_timeout: 30_000,
       name: nil,
       task_supervisor: nil
@@ -114,8 +121,37 @@ defmodule StarweaveCore.Distributed.TaskDistributor do
 
   @impl true
   def init(opts) do
+    # Get the task supervisor, defaulting to Task.Supervisor
+    task_supervisor = Keyword.get(opts, :task_supervisor, Task.Supervisor)
+    
+    # Ensure Task.Supervisor is running
+    case Process.whereis(task_supervisor) do
+      nil ->
+        case Task.Supervisor.start_link(name: task_supervisor) do
+          {:ok, _} -> :ok
+          {:error, {:already_started, _}} -> :ok
+          error -> 
+            Logger.error("Failed to start Task.Supervisor: #{inspect(error)}")
+            raise "Failed to start Task.Supervisor"
+        end
+      _ -> :ok
+    end
+    
+    # Initialize node list and load
     nodes = [node() | Node.list()]
     node_load = Enum.into(nodes, %{}, &{&1, 0})
+    
+    # Initialize tasks and other state
+    state = %State{
+      nodes: nodes,
+      node_load: node_load,
+      tasks: %{},
+      task_callers: %{},
+      task_monitors: %{},
+      task_timeout: Keyword.get(opts, :task_timeout, 30_000),
+      name: Keyword.get(opts, :name, __MODULE__),
+      task_supervisor: task_supervisor
+    }
     
     # Subscribe to node discovery events if available
     if Code.ensure_loaded?(NodeDiscovery) do
@@ -127,17 +163,6 @@ defmodule StarweaveCore.Distributed.TaskDistributor do
     else
       Logger.warning("NodeDiscovery module not available, using local node only")
     end
-    
-    # Get the task supervisor, defaulting to Task.Supervisor
-    task_supervisor = Keyword.get(opts, :task_supervisor, Task.Supervisor)
-    
-    state = %State{
-      nodes: nodes,
-      node_load: node_load,
-      task_timeout: Keyword.get(opts, :task_timeout, 30_000),
-      name: Keyword.get(opts, :name, __MODULE__),
-      task_supervisor: task_supervisor
-    }
     
     {:ok, state}
   end
