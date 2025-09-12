@@ -27,6 +27,7 @@ defmodule Starweave.MixProject do
   # the apps folder.
   defp deps do
     [
+      # Development and test tools
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.3", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.30", only: :dev, runtime: false},

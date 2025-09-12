@@ -17,6 +17,7 @@ defmodule StarweaveCore.Intelligence.Supervisor do
     children = [
       # Core components
       {StarweaveCore.Intelligence.WorkingMemory, []},
+      {StarweaveCore.Intelligence.DistributedWorkingMemory, []},
       {StarweaveCore.Intelligence.GoalManager, []},
       {StarweaveCore.Intelligence.ReasoningEngine, []},
       
