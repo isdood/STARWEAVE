@@ -3,170 +3,55 @@
 ## Overview
 This document outlines the architecture and implementation plan for STARWEAVE's self-modification capabilities, enabling the system to safely modify its own codebase in response to feedback and changing requirements.
 
-## Core Components
+---
 
-### 1. OpenDevin Integration
-- **Purpose**: Primary framework for autonomous software development
-- **Features**:
-  - Tool orchestration (shell, browser, editor)
-  - Project scaffolding
-  - Code generation and modification
-- **Integration Points**:
-  - STARWEAVE's codebase access
-  - Version control system hooks
-  - Safety sandboxing
+## A Simpler Path: The Unified `open-swe` Agent
 
-### 2. Specialized Components
+Instead of combining several large systems, focus on building **one core agent** that handles the entire software modification lifecycle. This agent would replicate the core logic of projects like `open-swe`, which typically follows a **plan -> retrieve -> edit -> test** loop. This approach reduces initial overhead and allows you to build a solid foundation before adding complexity.
 
-#### a. SWE-Kit
-- **Role**: Code understanding and context management
-- **Features**:
-  - Code indexing
-  - Retrieval-Augmented Generation (RAG)
-  - Language Server Protocol (LSP) support
-- **Integration**:
-  - Connect to STARWEAVE's working memory
-  - Provide code context to OpenDevin
 
-#### b. Aider
-- **Role**: Safe code modification
-- **Features**:
-  - Git-aware editing
-  - Interactive code review
-  - Change validation
-- **Integration**:
-  - Hook into STARWEAVE's version control
-  - Provide change proposals
+### **Phase 1: Build the Core Agent (2-3 weeks)**
 
-#### c. AutoCodeRover
-- **Role**: Automated issue resolution
-- **Features**:
-  - GitHub issue analysis
-  - Patch generation
-  - Test case validation
-- **Integration**:
-  - Connect to STARWEAVE's issue tracker
-  - Automate bug fixes and minor improvements
+The goal of this phase is to create a minimum viable product that can take a specific task, apply a code change, and verify it. This combines the most critical functions of all the proposed tools into one manageable system.
 
-## Safety Mechanisms
+1.  **Establish the Agent Framework**:
+    * Use a framework like [LangGraph](https://github.com/langchain-ai/langgraph) to define the agent's reasoning loop. This will be the "brain" that orchestrates the entire process.
+    * **Replaces**: The high-level orchestration role of **OpenDevin**.
 
-### 1. Sandboxing
-- **Implementation**:
-  - Docker containerization for all code execution
-  - Resource limits and access controls
-  - Network restrictions
-- **Verification**:
-  - Static code analysis
-  - Security scanning
-  - Dependency validation
+2.  **Implement Basic Code Understanding (RAG)**:
+    * Create a simple Retrieval-Augmented Generation (RAG) pipeline. The agent needs to be able to search the STARWEAVE codebase to find relevant files and functions based on the task description.
+    * Start with basic vector search on the code.
+    * **Replaces**: The initial need for **SWE-Kit**.
 
-### 2. Version Control Integration
-- **Features**:
-  - Atomic commits
-  - Descriptive commit messages
-  - Branch-per-modification
-- **Workflow**:
-  1. Create feature branch
-  2. Implement changes
-  3. Run tests
-  4. Create pull request
-  5. Await human review
+3.  **Develop a Simple Code Editing Tool**:
+    * Give the agent the ability to read a file, propose changes (e.g., as a patch file or by specifying line numbers to modify), and write the changes back to the file within a safe, sandboxed environment.
+    * **Replaces**: The complex Git-aware features of **Aider**.
 
-### 3. Human-in-the-Loop
-- **Approval Gates**:
-  - Major architectural changes
-  - Security-related modifications
-  - Dependencies updates
-- **Notification System**:
-  - Change summaries
-  - Impact analysis
-  - Rollback procedures
+4.  **Integrate Testing and Verification**:
+    * The agent's final step should be to run the project's existing test suite (e.g., `pytest`, `npm test`) within the sandbox. If the tests pass, the change is considered successful.
+    * This is a critical safety and validation step.
 
-## Implementation Phases
+---
 
-### Phase 1: Foundation (1-2 weeks)
-1. Set up OpenDevin with STARWEAVE
-   - Basic configuration
-   - Sandbox environment
-   - Version control integration
-2. Implement safety mechanisms
-   - Code review requirements
-   - Automated testing
-   - Rollback procedures
+### **Phase 2: Incremental Enhancement (2-3 weeks)**
 
-### Phase 2: Core Functionality (2-3 weeks)
-1. Integrate SWE-Kit
-   - Codebase indexing
-   - Context management
-   - RAG implementation
-2. Add Aider integration
-   - Git workflow
-   - Change validation
-   - Interactive review
+Once the core agent is functional, you can layer in more advanced capabilities inspired by the specialized tools, but as **native features of your agent** rather than new dependencies.
 
-### Phase 3: Advanced Features (2-3 weeks)
-1. Implement AutoCodeRover
-   - Issue analysis
-   - Automated fixes
-   - Test generation
-2. Add monitoring and feedback
-   - Performance metrics
-   - Error tracking
-   - User feedback loop
+1.  **Improve Context & Planning**:
+    * Enhance the RAG system with more sophisticated retrieval techniques (e.g., using an Abstract Syntax Tree to understand code structure), moving closer to **SWE-Kit's** capabilities.
+    * Improve the agent's planning step to break down more complex tasks.
 
-## Monitoring and Maintenance
+2.  **Automate Git Workflow**:
+    * Give the agent the ability to create new branches, commit its changes with descriptive messages, and open pull requests. This incorporates the core functionality of **Aider**.
 
-### 1. Performance Metrics
-- Code quality scores
-- Test coverage
-- Build success rates
-- Deployment frequency
+3.  **Automate Task Ingestion**:
+    * Connect the agent to your issue tracker (e.g., GitHub Issues). Allow it to parse an issue and automatically formulate a plan to solve it, which is the main function of **AutoCodeRover**.
 
-### 2. Alerting
-- Failed modifications
-- Performance regressions
-- Security vulnerabilities
-- Resource usage anomalies
+---
 
-## Future Enhancements
-1. **Automated Testing**
-   - Generate test cases
-   - Fuzz testing
-   - Performance benchmarking
+## Benefits of This Simplified Approach
 
-2. **Advanced Safety**
-   - Formal verification
-   - Behavior cloning
-   - Adversarial testing
-
-3. **Collaborative Development**
-   - Multi-agent coordination
-   - Human feedback integration
-   - Knowledge sharing between instances
-
-## Rollback Plan
-1. **Automated Rollback**
-   - Failed tests trigger rollback
-   - Performance degradation detection
-   - Error rate monitoring
-
-2. **Manual Rollback**
-   - One-command revert
-   - State restoration
-   - Post-mortem analysis
-
-## Success Criteria
-1. **Reliability**
-   - 99.9% successful modifications
-   - Zero data loss
-   - Minimal downtime
-
-2. **Performance**
-   - <5% overhead
-   - Sub-second response time
-   - Linear scalability
-
-3. **Safety**
-   - No critical vulnerabilities introduced
-   - All changes reviewed
-   - Comprehensive audit trail
+* **Reduced Complexity**: You manage the development of a single, coherent agent rather than integrating and maintaining four separate, complex systems.
+* **Faster Initial Results**: You can have a working end-to-end prototype much faster, which provides immediate value and allows for quicker iteration.
+* **Greater Flexibility**: It's easier to modify or swap out components (like the LLM, the retrieval method, or the testing strategy) within your own agent than it is to reconfigure a third-party dependency.
+* **Focused Development**: This approach centers your efforts on building the core intelligence for self-modification, rather than getting bogged down in systems integration.

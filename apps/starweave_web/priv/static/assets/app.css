@@ -204,8 +204,10 @@ a:hover {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
-  padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+  padding: 0.5rem 0.75rem 0.5rem 1rem;
   transition: border-color 0.2s ease;
+  min-height: 3.5rem;
+  box-sizing: border-box;
 }
 
 .chat-input-container:focus-within {
@@ -221,10 +223,13 @@ a:hover {
   font-size: 1rem;
   line-height: 1.5;
   resize: none;
-  min-height: 24px; /* Matches line-height * 1 */
+  min-height: 1.5rem;
   max-height: 120px;
-  padding: 0.5rem 0;
+  padding: 0.25rem 0;
+  margin: 0;
   overflow-y: auto;
+  align-self: center;
+  width: 100%;
 }
 
 .send-button {
@@ -239,7 +244,11 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
+  margin-left: 0.25rem;
+  flex: 0 0 auto;
+  align-self: flex-end;
+  margin-bottom: 0.25rem;
 }
 
 .send-button:hover {
@@ -259,11 +268,111 @@ a:hover {
 .prose {
   color: var(--color-text);
   line-height: 1.6;
+  max-width: 100%;
+  overflow-x: auto;
 }
-.prose-invert a { color: var(--color-primary); }
-.prose-invert code { background-color: rgba(255, 255, 255, 0.1); padding: 0.2em 0.4em; border-radius: 0.25rem; }
-.prose-invert pre { background-color: rgba(0, 0, 0, 0.3); padding: 1em; border-radius: 0.5rem; overflow-x: auto; }
-.prose-invert blockquote { border-left: 3px solid var(--color-primary); padding-left: 1em; color: var(--color-text-secondary); }
+
+/* Table Styling */
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.9em;
+  min-width: 100%;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prose thead {
+  background-color: var(--color-surface-light);
+  color: var(--color-text);
+  text-align: left;
+}
+
+.prose th,
+.prose td {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  vertical-align: top;
+  word-wrap: break-word;
+  min-width: 8rem;
+}
+
+.prose th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.prose tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.prose tbody tr:nth-child(odd) {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.prose tbody tr:hover {
+  background-color: rgba(179, 157, 219, 0.1);
+}
+
+/* Responsive Table */
+@media (max-width: 768px) {
+  .prose table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .prose th,
+  .prose td {
+    padding: 0.5rem;
+    font-size: 0.9em;
+  }
+  
+  .prose th[style*="text-align"],
+  .prose td[style*="text-align"] {
+    text-align: left !important;
+  }
+}
+
+/* Markdown Elements */
+.prose-invert a { 
+  color: var(--color-primary); 
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-primary);
+  transition: all 0.2s ease;
+}
+
+.prose-invert a:hover {
+  color: var(--color-primary-dark);
+  border-bottom-color: transparent;
+}
+
+.prose-invert code { 
+  background-color: rgba(255, 255, 255, 0.1); 
+  padding: 0.2em 0.4em; 
+  border-radius: 0.25rem; 
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.prose-invert pre { 
+  background-color: rgba(0, 0, 0, 0.3); 
+  padding: 1em; 
+  border-radius: 0.5rem; 
+  overflow-x: auto;
+  margin: 1.5rem 0;
+}
+
+.prose-invert blockquote { 
+  border-left: 3px solid var(--color-primary); 
+  padding: 0.5rem 0 0.5rem 1rem;
+  margin: 1.5rem 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
 
 /* 5. ANIMATIONS */
 @keyframes float {
