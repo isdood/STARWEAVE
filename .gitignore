@@ -19,6 +19,39 @@ erl_crash.dump
 # Temporary files, for example, from tests.
 /tmp/
 
-# Ignore working memory files for development
+# Mnesia database files
+/priv/data/mnesia/
+MnesiaCore.*
+Mnesia.*
+*.DCD
+*.DCL
+*.DCT
+*.DTS
+*.DTP
+*.BUP
+*.DAT
+
+# ETS/DETS files
 /apps/starweave_web/priv/ets/
 *.ets
+*.dets
+
+# Local development environment files
+.env
+.env.*
+!.env.example
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

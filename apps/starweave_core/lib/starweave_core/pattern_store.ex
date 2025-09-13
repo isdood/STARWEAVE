@@ -1,53 +1,88 @@
 defmodule StarweaveCore.PatternStore do
   @moduledoc """
-  In-memory pattern store backed by ETS.
+  Distributed pattern store backed by Mnesia.
   """
   use GenServer
 
   alias StarweaveCore.Pattern
-
-  @table :starweave_patterns
+  alias StarweaveCore.Pattern.Storage.MnesiaPatternStore
+  require Logger
 
   # Public API
 
   @spec start_link(keyword()) :: GenServer.on_start()
-  def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
 
-  @spec put(Pattern.t()) :: :ok
-  def put(%Pattern{} = pattern), do: GenServer.call(__MODULE__, {:put, pattern})
-
-  @spec get(String.t()) :: Pattern.t() | nil
-  def get(id) when is_binary(id) do
-    case :ets.lookup(@table, id) do
-      [{^id, pattern}] -> pattern
-      _ -> nil
+  @doc """
+  Stores a pattern in the database.
+  """
+  @spec put(Pattern.t()) :: :ok | {:error, term()}
+  def put(%Pattern{} = pattern) do
+    case MnesiaPatternStore.put(pattern) do
+      :ok -> :ok
+      error -> 
+        Logger.error("Failed to store pattern: #{inspect(error)}")
+        error
     end
   end
 
+  @doc """
+  Retrieves a pattern by ID.
+  """
+  @spec get(String.t()) :: Pattern.t() | nil
+  def get(id) when is_binary(id) do
+    case MnesiaPatternStore.get(id) do
+      {:ok, pattern} -> pattern
+      :not_found -> nil
+      error ->
+        Logger.error("Failed to retrieve pattern: #{inspect(error)}")
+        nil
+    end
+  end
+
+  @doc """
+  Retrieves all patterns, sorted by insertion time (newest first).
+  """
   @spec all() :: [Pattern.t()]
-  def all, do: :ets.tab2list(@table) |> Enum.map(fn {_id, p} -> p end)
+  def all do
+    case MnesiaPatternStore.all() do
+      {:ok, patterns} -> patterns
+      error ->
+        Logger.error("Failed to retrieve patterns: #{inspect(error)}")
+        []
+    end
+  end
 
+  @doc """
+  Deletes all patterns.
+  """
   @spec clear() :: :ok
-  def clear, do: GenServer.call(__MODULE__, :clear)
+  def clear do
+    case MnesiaPatternStore.clear() do
+      :ok -> :ok
+      error ->
+        Logger.error("Failed to clear patterns: #{inspect(error)}")
+        :error
+    end
+  end
 
-  # GenServer
+  # GenServer callbacks
 
   @impl true
   def init(_opts) do
-    table = :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
-    {:ok, %{table: table}}
+    # No ETS table needed anymore
+    {:ok, %{}}
   end
 
   @impl true
   def handle_call({:put, %Pattern{} = pattern}, _from, state) do
-    now = System.system_time(:millisecond)
-    stored = %Pattern{pattern | inserted_at: pattern.inserted_at || now}
-    true = :ets.insert(@table, {stored.id, stored})
-    {:reply, :ok, state}
+    {:reply, put(pattern), state}
   end
 
+  @impl true
   def handle_call(:clear, _from, state) do
-    :ets.delete_all_objects(@table)
-    {:reply, :ok, state}
+    {:reply, clear(), state}
   end
 end

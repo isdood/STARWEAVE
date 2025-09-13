@@ -43,10 +43,52 @@ config :starweave_web, StarweaveWeb.Endpoint,
   pubsub_server: Starweave.PubSub,
   live_view: [signing_salt: "51b888wU"]
 
+# Configure Mnesia
+mnesia_dir = Path.join([File.cwd!(), "priv", "data", "mnesia"])
+
+# Ensure Mnesia directory exists with proper permissions
+:ok = File.mkdir_p!(mnesia_dir)
+
+# Set the node name for distributed Erlang
+node_name = :"starweave@127.0.0.1"
+:net_kernel.start([node_name, :longnames])
+
+# Set Mnesia directory and configuration
+config :mnesia,
+  dir: String.to_charlist(mnesia_dir),
+  # Don't try to connect to other nodes automatically
+  extra_db_nodes: [],
+  # Set the schema location to disc_copies for the main node
+  schema_location: :disc,
+  dump_log_write_threshold: 1000,
+  dc_dump_limit: 40,
+  # Disable auto-connect to other nodes
+  auto_repair: true
+
 # Configures Elixir's Logger
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]
+
+# Starweave Core Configuration
+config :starweave_core, :mnesia,
+  # Table configurations
+  tables: [
+    working_memory: [
+      type: :ordered_set,
+      attributes: [:id, :context, :key, :value, :metadata, :inserted_at, :updated_at],
+      disc_copies: [node()],
+      index: [:context, :key],
+      storage_properties: []
+    ],
+    pattern_store: [
+      type: :set,
+      attributes: [:id, :pattern, :metadata, :inserted_at],
+      disc_copies: [node()],
+      index: [:id],
+      storage_properties: []
+    ]
+  ]
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

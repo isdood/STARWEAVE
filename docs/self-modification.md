@@ -1,57 +1,41 @@
-# STARWEAVE Self-Modification System
+### **Building Native Elixir Tools vs. Using Python**
 
-## Overview
-This document outlines the architecture and implementation plan for STARWEAVE's self-modification capabilities, enabling the system to safely modify its own codebase in response to feedback and changing requirements.
+Your intuition is spot on. **Leveraging your existing Elixir stack is the simpler and superior long-term strategy.** While the Python ecosystem for AI is more mature, introducing another language adds significant complexity that undermines the goal of simplicity.
 
----
-
-## A Simpler Path: The Unified `open-swe` Agent
-
-Instead of combining several large systems, focus on building **one core agent** that handles the entire software modification lifecycle. This agent would replicate the core logic of projects like `open-swe`, which typically follows a **plan -> retrieve -> edit -> test** loop. This approach reduces initial overhead and allows you to build a solid foundation before adding complexity.
+#### The Elixir-Native Advantage  elixir
+* **Unified Tech Stack**: You avoid managing two different languages, dependency managers (`mix` vs. `pip`), and build pipelines. Your entire system remains cohesive.
+* **Seamless Integration**: An Elixir-native agent can directly and safely interact with the rest of your STARWEAVE application. It can call Elixir modules, leverage OTP for concurrent operations, and understand the application's state without clumsy cross-language communication.
+* **Performance**: Keeping everything within the BEAM (Erlang's virtual machine) can be more performant and easier to manage than passing data back and forth between Elixir and a Python subprocess.
 
 
-### **Phase 1: Build the Core Agent (2-3 weeks)**
 
-The goal of this phase is to create a minimum viable product that can take a specific task, apply a code change, and verify it. This combines the most critical functions of all the proposed tools into one manageable system.
+#### The Trade-Off: Tooling Maturity
 
-1.  **Establish the Agent Framework**:
-    * Use a framework like [LangGraph](https://github.com/langchain-ai/langgraph) to define the agent's reasoning loop. This will be the "brain" that orchestrates the entire process.
-    * **Replaces**: The high-level orchestration role of **OpenDevin**.
-
-2.  **Implement Basic Code Understanding (RAG)**:
-    * Create a simple Retrieval-Augmented Generation (RAG) pipeline. The agent needs to be able to search the STARWEAVE codebase to find relevant files and functions based on the task description.
-    * Start with basic vector search on the code.
-    * **Replaces**: The initial need for **SWE-Kit**.
-
-3.  **Develop a Simple Code Editing Tool**:
-    * Give the agent the ability to read a file, propose changes (e.g., as a patch file or by specifying line numbers to modify), and write the changes back to the file within a safe, sandboxed environment.
-    * **Replaces**: The complex Git-aware features of **Aider**.
-
-4.  **Integrate Testing and Verification**:
-    * The agent's final step should be to run the project's existing test suite (e.g., `pytest`, `npm test`) within the sandbox. If the tests pass, the change is considered successful.
-    * This is a critical safety and validation step.
+The main challenge is that Elixir's AI/agentic tooling is less developed than Python's. You will need to build the core agent loop yourself, but this is less daunting than it sounds and gives you complete control.
 
 ---
 
-### **Phase 2: Incremental Enhancement (2-3 weeks)**
+### **A Simplified Elixir-Native Plan**
 
-Once the core agent is functional, you can layer in more advanced capabilities inspired by the specialized tools, but as **native features of your agent** rather than new dependencies.
+You can adapt the previously discussed phased approach to use Elixir's strengths. The core of your self-modification system could be a simple OTP application.
 
-1.  **Improve Context & Planning**:
-    * Enhance the RAG system with more sophisticated retrieval techniques (e.g., using an Abstract Syntax Tree to understand code structure), moving closer to **SWE-Kit's** capabilities.
-    * Improve the agent's planning step to break down more complex tasks.
+**1. Create the Agent Orchestrator (`GenServer`)**:
+The heart of your system can be a `GenServer` that manages the state of a modification task. It will execute the **plan -> retrieve -> edit -> test** loop.
 
-2.  **Automate Git Workflow**:
-    * Give the agent the ability to create new branches, commit its changes with descriptive messages, and open pull requests. This incorporates the core functionality of **Aider**.
+**2. Build a "Toolbox" of Elixir Modules**:
+The agent orchestrator will use a set of simple, native "tools" to interact with the system. These are just Elixir modules with specific functions:
 
-3.  **Automate Task Ingestion**:
-    * Connect the agent to your issue tracker (e.g., GitHub Issues). Allow it to parse an issue and automatically formulate a plan to solve it, which is the main function of **AutoCodeRover**.
+* **`Toolbox.FileSystem`**: Functions to safely read and write files within the project directory.
+* **`Toolbox.CodeSearch`**: A function that uses regular expressions or a simple search algorithm to find relevant code snippets.
+* **`Toolbox.TestRunner`**: A module that executes the project's test suite using `System.cmd("mix", ["test"])` and captures the output to see if the changes worked.
+* **`Toolbox.LLM`**: Your existing module that communicates with the `ollama` API.
 
----
+**Example Workflow**:
 
-## Benefits of This Simplified Approach
+1.  A task (e.g., "Add a validation for the user's email") is sent to the Agent `GenServer`.
+2.  The agent calls `Toolbox.LLM.prompt("How should I approach this task?")` to get a plan.
+3.  Based on the plan, it uses `Toolbox.CodeSearch.find("user registration logic")` to locate relevant files.
+4.  It reads the files, sends the code to the LLM to get the proposed changes, and uses `Toolbox.FileSystem.write_patch(...)` to apply them.
+5.  Finally, it calls `Toolbox.TestRunner.run()` to verify the changes. If the tests pass, the task is complete. If not, it can try to fix the issue or report the failure.
 
-* **Reduced Complexity**: You manage the development of a single, coherent agent rather than integrating and maintaining four separate, complex systems.
-* **Faster Initial Results**: You can have a working end-to-end prototype much faster, which provides immediate value and allows for quicker iteration.
-* **Greater Flexibility**: It's easier to modify or swap out components (like the LLM, the retrieval method, or the testing strategy) within your own agent than it is to reconfigure a third-party dependency.
-* **Focused Development**: This approach centers your efforts on building the core intelligence for self-modification, rather than getting bogged down in systems integration.
+This native approach keeps your system clean, leverages the power and safety of OTP, and avoids unnecessary external dependencies, making it a much simpler and more elegant solution for an Elixir project.
