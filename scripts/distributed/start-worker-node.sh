@@ -22,28 +22,65 @@ defmodule WorkerNode do
   def start do
     IO.puts("\nWorker node started. Attempting to connect to main node at #{System.get_env("MAIN_NODE")}...")
 
-    # Start the distributed supervision tree
-    IO.puts("Starting distributed components...")
-    {:ok, _} = Application.ensure_all_started(:starweave_core)
-
-    # Start the Task.Supervisor with proper error handling
-    case Task.Supervisor.start_link(name: StarweaveCore.Distributed.TaskSupervisor) do
-      {:ok, _} -> :ok
-      {:error, {:already_started, _}} -> :ok
-      error -> error
+    # First connect to the main node
+    IO.puts("Connecting to main node...")
+    case Node.connect(:"$MAIN_NODE") do
+      true -> 
+        IO.puts("✅ Connected to main node: $MAIN_NODE")
+        
+        # Start Mnesia with the same directory as the main node
+        :mnesia.stop()
+        :mnesia.delete_schema([node()])
+        
+        # Set Mnesia directory for worker node
+        mnesia_dir = Path.join(File.cwd!(), "priv/mnesia/worker")
+        File.mkdir_p!(mnesia_dir)
+        Application.put_env(:mnesia, :dir, mnesia_dir)
+        
+        # Start Mnesia
+        case :mnesia.start() do
+          :ok -> 
+            IO.puts("✅ Mnesia started on worker node")
+            
+            # Add this node to the Mnesia schema
+            case :mnesia.change_config(:extra_db_nodes, [:"$MAIN_NODE"]) do
+              {:ok, _} ->
+                IO.puts("✅ Connected to Mnesia cluster")
+                
+                # Start the distributed supervision tree
+                IO.puts("Starting distributed components...")
+                {:ok, _} = Application.ensure_all_started(:starweave_core)
+                
+                # Start the Task.Supervisor
+                case Task.Supervisor.start_link(name: StarweaveCore.Distributed.TaskSupervisor) do
+                  {:ok, _} -> :ok
+                  {:error, {:already_started, _}} -> :ok
+                  error -> error
+                end
+                
+                # Start the TaskDistributor
+                case StarweaveCore.Distributed.TaskDistributor.start_link(name: StarweaveCore.Distributed.TaskDistributor) do
+                  {:ok, _} -> :ok
+                  {:error, {:already_started, _}} -> 
+                    IO.puts("TaskDistributor already running, continuing...")
+                    :ok
+                  error -> error
+                end
+                
+              error ->
+                IO.puts("❌ Failed to connect to Mnesia cluster: #{inspect(error)}")
+                error
+            end
+            
+          error ->
+            IO.puts("❌ Failed to start Mnesia: #{inspect(error)}")
+            error
+        end
+        
+      false ->
+        IO.puts("❌ Failed to connect to main node: $MAIN_NODE")
+        {:error, :connection_failed}
     end
-    
-    # Start the TaskDistributor with proper error handling
-    case StarweaveCore.Distributed.TaskDistributor.start_link(name: StarweaveCore.Distributed.TaskDistributor) do
-      {:ok, _} -> :ok
-      {:error, {:already_started, _}} -> 
-        IO.puts("TaskDistributor already running, continuing...")
-        :ok
-      error -> error
-    end
-    
-    # Connect to the main node
-    connect_to_main()
     
     # Keep the node alive
     Process.sleep(:infinity)

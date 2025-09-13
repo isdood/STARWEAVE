@@ -33,6 +33,36 @@ defmodule MainNode do
     IO.puts("Cookie:       #{inspect(Node.get_cookie())}")
     IO.puts("Distribution: #{:net_kernel.nodename()}")
     
+    # Set up Mnesia directory
+    mnesia_dir = Path.join(File.cwd!(), "priv/mnesia/main")
+    File.mkdir_p!(mnesia_dir)
+    Application.put_env(:mnesia, :dir, mnesia_dir)
+    
+    # Stop Mnesia if it's running
+    :mnesia.stop()
+    
+    # Create schema for this node
+    case :mnesia.create_schema([node()]) do
+      :ok -> 
+        IO.puts("✅ Created Mnesia schema for #{node()}")
+      {:error, {_, {:already_exists, _}}} -> 
+        IO.puts("ℹ️ Mnesia schema already exists for #{node()}")
+      error -> 
+        IO.puts("❌ Failed to create Mnesia schema: #{inspect(error)}")
+        exit(1)
+    end
+    
+    # Start Mnesia
+    case :mnesia.start() do
+      :ok -> 
+        IO.puts("✅ Mnesia started on main node")
+      {:error, {:already_started, :mnesia}} -> 
+        IO.puts("ℹ️ Mnesia already started on main node")
+      error -> 
+        IO.puts("❌ Failed to start Mnesia: #{inspect(error)}")
+        exit(1)
+    end
+    
     # Start the distributed supervision tree
     IO.puts("\nStarting distributed components...")
     {:ok, _} = Application.ensure_all_started(:starweave_core)
@@ -45,6 +75,12 @@ defmodule MainNode do
     
     # Start the TaskDistributor
     {:ok, _} = StarweaveCore.Distributed.TaskDistributor.start_link(name: StarweaveCore.Distributed.TaskDistributor)
+    
+    # Print Mnesia status
+    IO.puts("\nMnesia Status:")
+    IO.inspect(:mnesia.system_info())
+    IO.puts("\nMnesia Tables:")
+    IO.inspect(:mnesia.system_info(:tables))
     
     IO.puts("\n✅ Distributed components started successfully")
     IO.puts("\nPhoenix web server is running...")
