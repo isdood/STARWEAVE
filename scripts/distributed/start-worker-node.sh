@@ -22,33 +22,42 @@ defmodule WorkerNode do
   def start do
     IO.puts("\nWorker node started. Attempting to connect to main node at #{System.get_env("MAIN_NODE")}...")
 
-    # First connect to the main node
-    IO.puts("Connecting to main node...")
-    case Node.connect(:"$MAIN_NODE") do
-      true -> 
-        IO.puts("✅ Connected to main node: $MAIN_NODE")
+    # Set Mnesia directory for worker node first
+    mnesia_dir = Path.join(File.cwd!(), "priv/mnesia/worker")
+    File.mkdir_p!(mnesia_dir)
+    
+    # Set Mnesia directory in application env
+    Application.put_env(:mnesia, :dir, String.to_charlist(mnesia_dir))
+    
+    # Get main node name
+    main_node = System.get_env("MAIN_NODE") |> String.to_atom()
+    
+    # Stop Mnesia if it's running
+    :mnesia.stop()
+    
+    # Connect to the main node first
+    IO.puts("🔗 Connecting to main node: #{inspect(main_node)}")
+    
+    # Try to connect to the main node with a timeout
+    case Node.ping(main_node) do
+      :pong ->
+        IO.puts("✅ Connected to main node")
         
-        # Start Mnesia with the same directory as the main node
-        :mnesia.stop()
-        :mnesia.delete_schema([node()])
-        
-        # Set Mnesia directory for worker node
-        mnesia_dir = Path.join(File.cwd!(), "priv/mnesia/worker")
-        File.mkdir_p!(mnesia_dir)
-        Application.put_env(:mnesia, :dir, mnesia_dir)
-        
-        # Start Mnesia
+        # Start Mnesia without creating a schema
         case :mnesia.start() do
-          :ok -> 
+          :ok ->
             IO.puts("✅ Mnesia started on worker node")
             
-            # Add this node to the Mnesia schema
-            case :mnesia.change_config(:extra_db_nodes, [:"$MAIN_NODE"]) do
+            # Add this node to the Mnesia cluster
+            case :mnesia.change_config(:extra_db_nodes, [main_node]) do
               {:ok, _} ->
-                IO.puts("✅ Connected to Mnesia cluster")
+                IO.puts("✅ Added to Mnesia cluster")
+                
+                # Copy the schema from the main node
+                :mnesia.change_table_copy_type(:schema, node(), :disc_copies)
                 
                 # Start the distributed supervision tree
-                IO.puts("Starting distributed components...")
+                IO.puts("🚀 Starting distributed components...")
                 {:ok, _} = Application.ensure_all_started(:starweave_core)
                 
                 # Start the Task.Supervisor

@@ -36,7 +36,9 @@ defmodule MainNode do
     # Set up Mnesia directory
     mnesia_dir = Path.join(File.cwd!(), "priv/mnesia/main")
     File.mkdir_p!(mnesia_dir)
-    Application.put_env(:mnesia, :dir, mnesia_dir)
+    
+    # Set Mnesia directory in application env
+    Application.put_env(:mnesia, :dir, String.to_charlist(mnesia_dir))
     
     # Stop Mnesia if it's running
     :mnesia.stop()
@@ -56,6 +58,16 @@ defmodule MainNode do
     case :mnesia.start() do
       :ok -> 
         IO.puts("✅ Mnesia started on main node")
+        
+        # Wait for Mnesia to be fully started
+        :mnesia.wait_for_tables(:mnesia.schema, 5000)
+        
+        # Set as the only node in the cluster initially
+        :mnesia.change_table_copy_type(:schema, node(), :disc_copies)
+        
+        IO.puts("📋 Mnesia schema info:")
+        IO.inspect(:mnesia.table_info(:schema, :all))
+        
       {:error, {:already_started, :mnesia}} -> 
         IO.puts("ℹ️ Mnesia already started on main node")
       error -> 
