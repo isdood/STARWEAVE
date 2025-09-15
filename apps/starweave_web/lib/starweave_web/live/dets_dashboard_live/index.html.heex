@@ -1,0 +1,397 @@
+<div class="container mx-auto px-4 py-8 bg-gradient-to-b from-gray-50 to-white min-h-screen">
+  <div class="flex justify-between items-center mb-8">
+    <h1 class="text-3xl font-bold text-gray-900">DETS Storage Dashboard</h1>
+    <div class="flex items-center space-x-4">
+      <span class="text-sm text-gray-500">
+        Last updated: <%= format_timestamp(@last_updated) %>
+      </span>
+      <button 
+        phx-click="refresh" 
+        class="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 text-sm font-medium transition-colors"
+      >
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <%= if @error do %>
+    <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm text-red-700">
+            <%= @error %>
+          </p>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+      <div class="flex items-center mb-4">
+        <div class="p-2 rounded-lg bg-blue-50 text-blue-600 mr-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <h2 class="text-xl font-semibold text-gray-800">Storage Summary</h2>
+      </div>
+      <div class="space-y-6">
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-sm font-medium text-gray-600">Total Items</span>
+            <span class="text-sm font-semibold text-gray-900"><%= @item_count %></span>
+          </div>
+          <div class="w-full bg-gray-100 rounded-full h-2">
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full" style={"width: #{min(100, @item_count / max(1, @item_count) * 100)}%"}></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-sm font-medium text-gray-600">Total Size</span>
+            <span class="text-sm font-semibold text-gray-900"><%= format_memory(@total_size) %></span>
+          </div>
+          <div class="w-full bg-gray-100 rounded-full h-2">
+            <div class="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full" style={"width: #{min(100, @total_size / max(1, @total_size) * 100)}%"}></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+      <div class="flex items-center mb-4">
+        <div class="p-2 rounded-lg bg-purple-50 text-purple-600 mr-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </div>
+        <h2 class="text-xl font-semibold text-gray-800">Storage Distribution</h2>
+      </div>
+      <div class="h-48">
+        <div phx-update="ignore" id="storage-chart" class="w-full h-full">
+          <!-- Chart will be rendered here by Chart.js -->
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+      <div class="flex items-center mb-4">
+        <div class="p-2 rounded-lg bg-green-50 text-green-600 mr-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <h2 class="text-xl font-semibold text-gray-800">Quick Actions</h2>
+      </div>
+      <div class="flex flex-wrap gap-4 w-auto">
+        <button 
+          phx-click="export_data" 
+          style="display: flex; align-items: center; justify-content: center; padding: 0.625rem 1.25rem; font-weight: 600; border-radius: 0.375rem; background-color: #16a34a; color: white; border: 2px solid #166534; min-width: 150px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: all 0.2s ease-in-out; white-space: nowrap;"
+          onmouseover="this.style.backgroundColor='#15803d'; this.style.borderColor='#14532d';"
+          onmouseout="this.style.backgroundColor='#16a34a'; this.style.borderColor='#166534';"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Export Data
+        </button>
+        <button 
+          phx-click="clear_all" 
+          style="display: flex; align-items: center; justify-content: center; padding: 0.625rem 1.25rem; font-weight: 600; border-radius: 0.375rem; background-color: #dc2626; color: white; border: 2px solid #991b1b; min-width: 150px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: all 0.2s ease-in-out; white-space: nowrap;"
+          onmouseover="this.style.backgroundColor='#b91c1c'; this.style.borderColor='#7f1d1d';"
+          onmouseout="this.style.backgroundColor='#dc2626'; this.style.borderColor='#991b1b';"
+          data-confirm="Are you sure you want to clear all data? This cannot be undone."
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          Clear All Data
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+      <div class="mb-3 sm:mb-0">
+        <h2 class="text-xl font-semibold text-gray-800">Stored Items</h2>
+        <p class="text-sm text-gray-500 mt-1">Manage your DETS storage items</p>
+      </div>
+      <div class="flex items-center bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
+        <span class="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+        <span class="text-sm font-medium text-gray-700"><%= length(@items) %> items</span>
+      </div>
+    </div>
+    
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preview</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-100">
+          <%= for item <- @items do %>
+            <tr class="hover:bg-gray-50 transition-all duration-150 ease-in-out border-l-4 border-transparent hover:border-blue-500">
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <code class="text-xs bg-gray-100 px-2 py-1 rounded"><%= item.id %></code>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <span class={"inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium #{if item.type == :working_memory, do: "bg-blue-100 text-blue-800", else: "bg-purple-100 text-purple-800"}"}>
+                  <%= item.type %>
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <%= format_memory(item.size) %>
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" 
+                  title={inspect(item.data) |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()}>
+                <%= if is_binary(item.data) do %>
+                  <%= String.slice(item.data, 0..100) %><%= if String.length(item.data) > 100, do: "..." %>
+                <% else %>
+                  <code class="text-xs"><%= inspect(item.data, limit: 30) %></code>
+                <% end %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <div class="flex items-center justify-end space-x-2">
+                  <button 
+                    id={"view-item-#{item.id}"}
+                    phx-click="show_item" 
+                    phx-value-id={item.id}
+                    style="position: relative; padding: 0.5rem; border-radius: 0.375rem; background-color: #f0f9ff; color: #0369a1; border: 2px solid #0ea5e9; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s ease-in-out;"
+                    onmouseover="this.style.backgroundColor='#e0f2fe'; this.style.borderColor='#0284c7';"
+                    onmouseout="this.style.backgroundColor='#f0f9ff'; this.style.borderColor='#0ea5e9';"
+                    title="View details"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                  <button 
+                    id={"delete-item-#{item.id}"}
+                    phx-click="delete_item" 
+                    phx-value-id={item.id}
+                    style="position: relative; padding: 0.5rem; border-radius: 0.375rem; background-color: #fef2f2; color: #b91c1c; border: 2px solid #f87171; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s ease-in-out;"
+                    onmouseover="this.style.backgroundColor='#fee2e2'; this.style.borderColor='#ef4444';"
+                    onmouseout="this.style.backgroundColor='#fef2f2'; this.style.borderColor='#f87171';"
+                    data-confirm="Are you sure you want to delete this item?"
+                    title="Delete item"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    
+    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+      <div class="flex justify-between items-center">
+        <div class="text-sm text-gray-500">
+          Showing <%= length(@items) %> of <%= @item_count %> items
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%= if @show_modal && @selected_item do %>
+  <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" phx-click="close_modal" x-data="{ copied: false }" x-init="() => { window.scrollTo(0, 0); document.body.style.overflow = 'hidden' }" x-on:close-modal.window="document.body.style.overflow = 'auto'" x-on:keydown.escape.window="$dispatch('close-modal')">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-all" phx-click-away="close_modal" phx-window-keydown="close_modal" phx-key="escape">
+      <!-- Header -->
+      <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
+        <div>
+          <h3 class="text-xl font-semibold text-gray-900">Item Details</h3>
+          <p class="text-sm text-gray-500 mt-1">Inspect and manage this storage item</p>
+        </div>
+        <button phx-click="close_modal" class="p-1.5 rounded-full text-gray-400 hover:text-gray-500 hover:bg-gray-100 transition-colors duration-150" title="Close">
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Content -->
+      <div class="flex-1 overflow-y-auto p-6">
+        <div class="space-y-6">
+          <!-- Header Section -->
+          <div class="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-lg font-medium text-gray-900">
+                  <%= case @selected_item.id do 
+                    {:conversation, id} -> "Conversation: #{id}"
+                    {:feedback, type} -> "Feedback: #{inspect(type)}"
+                    id -> "Item: #{inspect(id)}"
+                  end %>
+                </h3>
+                <div class="mt-2 flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                  <div class="flex items-center">
+                    <svg class="h-4 w-4 mr-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Updated: <%= if @selected_item.inserted_at do %><time datetime={@selected_item.inserted_at}><%= format_timestamp(@selected_item.inserted_at) %></time><% else %>N/A<% end %></span>
+                  </div>
+                  <div class="flex items-center">
+                    <svg class="h-4 w-4 mr-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                    </svg>
+                    <span>Size: <%= format_memory(@selected_item.size) %></span>
+                  </div>
+                  <div class="flex items-center">
+                    <svg class="h-4 w-4 mr-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Created: <%= if @selected_item.inserted_at do %><time datetime={@selected_item.inserted_at}><%= format_timestamp(@selected_item.inserted_at) %></time><% else %>Unknown<% end %></span>
+                  </div>
+                </div>
+              </div>
+              <span class={"inline-flex items-center px-3 py-1 rounded-full text-xs font-medium #{if @selected_item.type == :working_memory, do: "bg-blue-100 text-blue-800", else: "bg-purple-100 text-purple-800"}"}>
+                <%= @selected_item.type %>
+              </span>
+            </div>
+            
+            <!-- Actions Section -->
+            <div class="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+              <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Actions</h4>
+              <div class="grid grid-cols-2 gap-3">
+                <button 
+                  phx-click="copy_to_clipboard" 
+                  phx-value-text={inspect(@selected_item.raw_data, pretty: true, limit: :infinity, printable_limit: :infinity)}
+                  class="flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  x-data="{ copied: false }"
+                  x-on:click="copied = true; setTimeout(() => copied = false, 2000)"
+                >
+                  <svg x-show="!copied" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                  </svg>
+                  <svg x-show="copied" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span x-text="copied ? 'Copied!' : 'Copy to Clipboard'"></span>
+                </button>
+                <button 
+                  phx-click="delete_item" 
+                  phx-value-id={@selected_item.id}
+                  class="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  data-confirm="Are you sure you want to delete this item?"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete Item
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Data Section -->
+          <div class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+            <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+              <h4 class="text-sm font-medium text-gray-700">Content</h4>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                <%= @selected_item.type || "unknown" %>
+              </span>
+            </div>
+            <div class="p-4 overflow-auto max-h-96 bg-gray-50">
+              <%= if is_map(@selected_item.raw_data) or is_list(@selected_item.raw_data) do %>
+                <div class="space-y-3">
+                  <%= for {key, value} <- (if is_map(@selected_item.raw_data), do: @selected_item.raw_data, else: Enum.with_index(@selected_item.raw_data)) do %>
+                    <div class="bg-white p-3 rounded border border-gray-200 hover:bg-gray-50 transition-colors">
+                      <div class="font-medium text-sm text-gray-700 mb-1 flex items-center">
+                        <span class="inline-flex items-center justify-center h-5 w-5 rounded-full bg-gray-100 text-xs text-gray-600 mr-2">
+                          <%= if is_integer(key), do: key + 1, else: String.at(to_string(key), 0..0) %></span>
+                        <%= if is_integer(key), do: "Item #{key + 1}", else: key %>
+                      </div>
+                      <div class="text-sm text-gray-600 whitespace-pre-wrap break-words pl-7">
+                        <%= if is_binary(value) and String.printable?(value) do %>
+                          <div class="prose prose-sm max-w-none"><%= value %></div>
+                        <% else %>
+                          <pre class="text-xs bg-gray-50 p-2 rounded border border-gray-100 overflow-x-auto"><%= inspect(value, pretty: true, limit: :infinity, printable_limit: :infinity) %></pre>
+                        <% end %>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              <% else %>
+                <div class="bg-white p-4 rounded border border-gray-200">
+                  <%= if is_binary(@selected_item.raw_data) && String.printable?(@selected_item.raw_data) do %>
+                    <div class="prose prose-sm max-w-none"><%= @selected_item.raw_data %></div>
+                  <% else %>
+                    <pre class="text-xs bg-gray-50 p-3 rounded border border-gray-100 overflow-x-auto"><%= inspect(@selected_item.raw_data, pretty: true, limit: :infinity, printable_limit: :infinity) %></pre>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Footer -->
+      <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+        <div class="flex items-center text-sm text-gray-500">
+          <svg class="h-4 w-4 mr-1.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Press <kbd class="mx-1 px-1.5 py-0.5 text-xs font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded">ESC</kbd> to close
+        </div>
+        <button 
+          phx-click="close_modal" 
+          class="px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Initialize syntax highlighting -->
+  <script>
+    document.addEventListener('phx:update', function() {
+      if (typeof hljs !== 'undefined') {
+        document.querySelectorAll('pre code').forEach((block) => {
+          hljs.highlightElement(block);
+        });
+      }
+    });
+  </script>
+<% end %>
+
+<script>
+  // Initialize the dashboard chart when the page loads
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.DashboardChart) {
+      window.DashboardChart.init();
+    }
+  });
+  
+  // Update the chart when LiveView updates
+  document.addEventListener('phx:page-loading-stop', () => {
+    if (window.DashboardChart) {
+      // If you need to update the chart with new data from the server,
+      // you can use LiveView's pushEventTo to send data from the server
+      // and call window.DashboardChart.update(labels, data) with the new data
+    }
+  });
+  
+  // Handle the chart data from Phoenix
+  window.addEventListener('phx:update-chart', (e) => {
+    if (window.DashboardChart && window.DashboardChart.update) {
+      window.DashboardChart.update(e.detail.labels, e.detail.data);
+    }
+  });
+</script>

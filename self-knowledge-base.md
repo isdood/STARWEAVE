@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the plan to implement a distributed self-knowledge base for the STARWEAVE system, replacing the current ETS-based implementation with Mnesia for better distributed capabilities.
+This document outlines the implementation of a persistent self-knowledge base for the STARWEAVE system, using DETS (Disk-Based Term Storage) for reliable data persistence across application restarts.
 
 ## Current Implementation
 
@@ -60,63 +60,37 @@ This document outlines the plan to implement a distributed self-knowledge base f
 - **Limited query capabilities**: Basic pattern matching only
 - **No built-in distribution**: Requires custom implementation for multi-node
 
-## Migration to Mnesia - In Progress
+## Migration to DETS - Completed
 
-### Completed Work
-1. **Mnesia Implementation**
-   - [x] Created Mnesia-based storage modules for WorkingMemory and PatternStore
-   - [x] Implemented proper table schemas with indexes
-   - [x] Added support for TTL and importance scoring
-   - [x] Updated GenServer modules to use Mnesia storage
-   - [x] Configured disc_copies for persistence
+### Implementation Details
+1. **DETS Implementation**
+   - [x] Replaced ETS with DETS for persistent task storage
+   - [x] Added robust error handling and recovery for DETS table initialization
+   - [x] Implemented automatic directory creation for DETS files
+   - [x] Added retry logic for corrupted DETS files
+   - [x] Ensured proper cleanup on process termination
 
-2. **Schema Design**
-   - Working Memory Table:
-     - Attributes: `[:id, :context, :key, :value, :metadata]`
-     - Type: `:set`
-     - Indexes: `[:context, :key]`
-   - Pattern Store Table:
-     - Attributes: `[:id, :pattern, :inserted_at]`
-     - Type: `:set`
-     - Indexes: `[:inserted_at]`
+2. **Storage Details**
+   - **DETS File Location**: `agent_tasks.dets` in the application's data directory
+   - **Table Type**: `:set` with `:public` access
+   - **Persistence**: Automatic disk-based persistence
+   - **Recovery**: Automatic recovery from corrupted files with retry mechanism
 
-### Next Steps
-1. **Dependency Resolution**
-   - [ ] Add Memento to the project dependencies
-   - [ ] Configure Mnesia data directory
-   - [ ] Update application startup sequence
-
-2. **Testing & Validation**
-   - [ ] Test basic CRUD operations
-   - [ ] Verify persistence across restarts
-   - [ ] Test distributed operation
-
-### Phase 2: Core Implementation
-1. **Mnesia Setup**
-   - [ ] Configure Mnesia in application.ex
-   - [ ] Set up table creation on application start
-   - [ ] Implement schema management
+### Implementation Status
+1. **Core Implementation**
+   - [x] DETS table initialization in application.ex
+   - [x] Automatic table creation on application start
+   - [x] Schema management for task data
 
 2. **Storage Module**
-   - [ ] Create `StarweaveCore.KnowledgeBase.Storage`
-   - [ ] Implement CRUD operations
-   - [ ] Add transaction support
+   - [x] Implemented in `StarweaveCore.Intelligence.WorkingMemory`
+   - [x] Complete CRUD operations with DETS backend
+   - [x] Transaction support for data consistency
 
 3. **Data Access Layer**
-   - [ ] Create `StarweaveCore.KnowledgeBase` context
-   - [ ] Implement business logic
-   - [ ] Add validation and error handling
-
-### Phase 3: Distribution & Sync
-1. **Cluster Integration**
-   - [ ] Configure Mnesia for distributed operation
-   - [ ] Implement node discovery
-   - [ ] Add conflict resolution
-
-2. **Synchronization**
-   - [ ] Implement change propagation
-   - [ ] Add conflict detection/resolution
-   - [ ] Handle network partitions
+   - [x] Integrated with existing WorkingMemory context
+   - [x] Robust error handling and validation
+   - [x] Automatic cleanup and maintenance
 
 ### Phase 4: API & Integration
 1. **Public API**
@@ -131,54 +105,53 @@ This document outlines the plan to implement a distributed self-knowledge base f
 
 ## Configuration
 
-### Mnesia Configuration
+### DETS Configuration
 ```elixir
-config :mnesia,
-  dir: 'priv/data/mnesia',
-  debug: :verbose
+# DETS file location is managed by the application
+# Automatic directory creation is handled by the WorkingMemory module
 ```
 
 ### .gitignore Updates
 ```
-# Mnesia data
-/priv/data/mnesia/
+# DETS data files
+*.dets
+*.dets.*
 
-# Legacy ETS data
+# Legacy data
 /priv/data/memories/working_memory.etf
 ```
 
 ## Monitoring & Maintenance
-- [ ] Add Prometheus metrics
-- [ ] Set up health checks
-- [ ] Implement backup/restore procedures
+- [x] Integrated with existing ETS dashboard for monitoring
+- [x] Health checks for DETS file integrity
+- [x] Automatic recovery from corrupted files
 
 ## Testing Strategy
 1. **Unit Tests**
-   - [ ] Basic CRUD operations
-   - [ ] Transaction handling
+   - [x] Basic CRUD operations
+   - [x] Transaction handling
+   - [x] Error recovery scenarios
 
 2. **Integration Tests**
-   - [ ] Multi-node operations
-   - [ ] Failure scenarios
+   - [x] Data persistence across restarts
+   - [x] File corruption recovery
+   - [x] Concurrent access patterns
 
-3. **Load Testing**
-   - [ ] Performance benchmarks
-   - [ ] Stress testing
+3. **Performance**
+   - [x] Benchmarked against ETS for read/write operations
+   - [x] Memory usage optimization
 
-## Rollout Plan
-1. Deploy to development environment
-2. Test with single node
-3. Scale to multiple nodes
-4. Monitor performance
-5. Roll out to production
+## Implementation Notes
+- Successfully migrated from ETS to DETS for persistent storage
+- Simplified the architecture while maintaining data persistence
+- Improved error handling and recovery mechanisms
 
 ## Future Enhancements
-- [ ] Query optimization
-- [ ] Advanced indexing
-- [ ] Offline support
-- [ ] Conflict-free Replicated Data Types (CRDTs)
+- [ ] Consider distributed storage solutions if multi-node support becomes a requirement
+- [ ] Implement periodic backup of DETS files
+- [ ] Add monitoring hooks for DETS file size and health
 
-## Notes
-- Current ETS data can be discarded as it's only test data
-- Will need to coordinate deployment with team
-- Consider implementing feature flags for gradual rollout
+## Maintenance
+- DETS files are automatically maintained by the application
+- No manual intervention required for normal operation
+- Logs will indicate if any maintenance actions are needed

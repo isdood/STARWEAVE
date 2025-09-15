@@ -6,7 +6,7 @@ defmodule StarweaveCore.Intelligence.ReasoningEngine do
   
   use GenServer
   
-  alias StarweaveCore.Intelligence.{WorkingMemory, GoalManager, Attention}
+  alias StarweaveCore.Intelligence.WorkingMemory
   
   # Client API
   

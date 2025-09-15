@@ -5,128 +5,101 @@ defmodule StarweaveCore.Application do
 
   use Application
   require Logger
+  
+  alias StarweaveCore.Intelligence.Storage.DetsWorkingMemory
+  alias StarweaveCore.Pattern.Storage.DetsPatternStore
+
+  @dets_services [
+    DetsWorkingMemory,
+    DetsPatternStore
+  ]
 
   @doc """
-  Returns the Mnesia data directory.
+  Initializes the DETS storage directory.
   """
-  def mnesia_dir do
-    dir = 
-      case System.get_env("MNE_DATA_DIR") do
-        nil -> 
-          Path.join([:code.priv_dir(:starweave_core), "data", "mnesia"])
-        env_dir -> 
-          env_dir
-      end
+  def setup_dets do
+    # Get DETS directory from config or use default
+    dets_dir = Application.get_env(:starweave_core, :dets_dir, "priv/data")
     
-    # Ensure the directory exists and is writable
-    :ok = File.mkdir_p!(dir)
-    
-    # Convert to charlist for Mnesia
-    String.to_charlist(dir)
-  end
-
-  @doc """
-  Configures Mnesia for the application.
-  """
-  def setup_mnesia do
-    # Get Mnesia directory from config or use default
-    mnesia_dir = 
-      case Application.get_env(:mnesia, :dir) do
-        nil ->
-          dir = Path.join([File.cwd!(), "priv", "data", "mnesia"])
-          String.to_charlist(dir)
-        dir -> dir
-      end
-    
-    # Ensure the directory exists and is writable
-    mnesia_dir_str = List.to_string(mnesia_dir)
-    File.mkdir_p!(mnesia_dir_str)
-    
-    # Set Mnesia directory in application env
-    Application.put_env(:mnesia, :dir, mnesia_dir)
-    
-    # Get the current node name
-    current_node = node()
-    
-    # Check if Mnesia is already running
-    case :mnesia.system_info(:is_running) do
-      :yes ->
-        Logger.info("Mnesia already running on node #{inspect(current_node)}")
-        :ok
-        
-      _ ->
-        # Stop Mnesia if it's in a weird state
-        :mnesia.stop()
-        
-        # Start Mnesia
-        case :mnesia.start() do
-          :ok -> 
-            Logger.info("Mnesia started successfully on #{inspect(current_node)}")
-            :ok
-              
-          {:error, {:already_started, :mnesia}} -> 
-            Logger.info("Mnesia already started on #{inspect(current_node)}")
-            :ok
-            
-          error -> 
-            Logger.error("Failed to start Mnesia: #{inspect(error)}")
-            error
-        end
-    end
+    # Create data directory if it doesn't exist
+    :ok = File.mkdir_p(dets_dir)
+    :ok
   end
 
   @impl true
   def start(_type, _args) do
-    # Setup Mnesia before starting the application
-    with :ok <- setup_mnesia() do
-      # Initialize Mnesia schema and tables
-      :ok = StarweaveCore.Storage.Mnesia.Schema.init()
-      
-      # Define the children to be supervised
-      children = [
-        # Mnesia repository
-        {StarweaveCore.Storage.Mnesia.Repo, []},
-        
-        # Existing services
-        StarweaveCore.PatternStore,
-        {StarweaveCore.Distributed.Supervisor, []},
-        {StarweaveCore.Intelligence.Supervisor, []}
-      ]
-
-      # Start the supervisor
-      opts = [strategy: :one_for_one, name: StarweaveCore.Supervisor]
-      Supervisor.start_link(children, opts)
-    else
-      error ->
-        Logger.error("Failed to start application due to Mnesia error: #{inspect(error)}")
-        error
-    end
-  end
-  
-  @doc """
-  Initializes Mnesia tables.
-  """
-  def init_mnesia_tables do
-    # Ensure Mnesia is started
-    :ok = setup_mnesia()
+    # Setup DETS storage directory
+    :ok = setup_dets()
     
-    # Initialize tables
-    case StarweaveCore.Storage.Mnesia.Schema.init() do
-      :ok ->
-        Logger.info("Mnesia tables initialized successfully")
-        :ok
+    # Define the children to be supervised
+    children = [
+      # Pattern Store (using DETS)
+      StarweaveCore.PatternStore,
+      
+      # Distributed services
+      {StarweaveCore.Distributed.Supervisor, []},
+      
+      # Intelligence services (includes WorkingMemory)
+      {StarweaveCore.Intelligence.Supervisor, []}
+    ]
+
+    # Start the supervisor
+    opts = [strategy: :one_for_one, name: StarweaveCore.Supervisor]
+    case Supervisor.start_link(children, opts) do
+      {:ok, sup} ->
+        # Initialize DETS tables after startup
+        initialize_dets_tables()
+        {:ok, sup}
       error ->
-        Logger.error("Failed to initialize Mnesia tables: #{inspect(error)}")
         error
     end
   end
   
+  @impl true
+  def stop(_state) do
+    # Close all DETS tables on application stop
+    Enum.each(@dets_services, fn module ->
+      if function_exported?(module, :close, 0) do
+        case apply(module, :close, []) do
+          :ok -> :ok
+          error -> 
+            Logger.error("Failed to close DETS table for #{inspect(module)}: #{inspect(error)}")
+        end
+      end
+    end)
+    :ok
+  end
+  
+  defp initialize_dets_tables do
+    Enum.each(@dets_services, fn module ->
+      case module.init() do
+        :ok -> 
+          Logger.info("Successfully initialized #{inspect(module)}")
+        error ->
+          Logger.error("Failed to initialize #{inspect(module)}: #{inspect(error)}")
+      end
+    end)
+  end
+  
   @doc """
-  Resets all Mnesia tables (for development and testing).
+  Resets all data (for development and testing).
   WARNING: This will delete all data!
   """
-  def reset_mnesia_tables! do
-    :ok = setup_mnesia()
-    StarweaveCore.Storage.Mnesia.Schema.reset!()
+  def reset_data! do
+    # Close all DETS tables first
+    Enum.each(@dets_services, fn module ->
+      if function_exported?(module, :close, 0) do
+        apply(module, :close, [])
+      end
+    end)
+    
+    # Clean up DETS files
+    dets_dir = Application.get_env(:starweave_core, :dets_dir, "priv/data")
+    
+    # Delete DETS files
+    File.rm_rf!(Path.join(dets_dir, Application.get_env(:starweave_core, :working_memory_file, "working_memory.dets")))
+    File.rm_rf!(Path.join(dets_dir, Application.get_env(:starweave_core, :pattern_store_file, "patterns.dets")))
+    
+    :ok
   end
 end

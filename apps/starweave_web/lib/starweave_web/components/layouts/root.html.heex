@@ -103,14 +103,17 @@
           
 <!-- Desktop Navigation -->
           <nav class="hidden md:flex items-center space-x-1">
-            <%= live_redirect "Home", 
-              to: "/",
-              class: "px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 " <>
-                if(@current_uri == "/" || @current_uri == "/ets-dashboard" && @current_uri == "/", 
-                  do: "bg-surface-700 text-primary", 
+            <.link
+              href="/"
+              class={
+                "px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 " <>
+                if @current_uri == "/",
+                  do: "bg-surface-700 text-primary",
                   else: "text-on-surface/90 hover:bg-surface-700/50 hover:text-on-surface"
-                )
-            %>
+              }
+            >
+              Home
+            </.link>
           </nav>
           
 <!-- Right side controls -->
@@ -175,14 +178,17 @@
 <!-- Mobile menu, show/hide based on menu state -->
       <div class="md:hidden hidden" id="mobile-menu">
         <div class="px-2 pt-2 pb-3 space-y-1">
-          <%= live_redirect "Home", 
-            to: "/",
-            class: "block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 " <>
-              if(@current_uri == "/" || @current_uri == "/ets-dashboard" && @current_uri == "/", 
-                do: "bg-surface-700 text-primary", 
+          <.link
+            href="/"
+            class={
+              "block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 " <>
+              if @current_uri == "/",
+                do: "bg-surface-700 text-primary",
                 else: "text-on-surface/90 hover:bg-surface-700 hover:text-on-surface"
-              )
-          %>
+            }
+          >
+            Home
+          </.link>
         </div>
       </div>
     </header>

@@ -192,7 +192,7 @@ defmodule StarweaveCore.Intelligence.GoalManager do
       state.goals
       |> Map.values()
       |> Enum.filter(fn 
-        goal when is_nil(status) -> true
+        _goal when is_nil(status) -> true
         goal -> goal.status == status
       end)
       

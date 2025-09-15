@@ -97,6 +97,20 @@ defmodule StarweaveWeb.PatternLive.Index do
     {:noreply, assign(socket, :is_typing, false)}
   end
 
+  def handle_info({:llm_chat, message, _context_manager}, socket) do
+    case StarweaveLlm.OllamaClient.chat_with_context(
+           message,
+           nil,
+           model: llm_model(),
+           use_memory: true
+         ) do
+      {:ok, response} ->
+        {:noreply, assign(socket, :llm_response, response)}
+      {:error, error} ->
+        {:noreply, put_flash(socket, :error, "Error getting response: #{inspect(error)}")}
+    end
+  end
+
   defp extract_personal_info(message) do
     cond do
       # Match patterns like "my name is Caleb" or "I'm Caleb"

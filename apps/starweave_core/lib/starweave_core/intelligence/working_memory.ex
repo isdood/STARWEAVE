@@ -1,20 +1,19 @@
 defmodule StarweaveCore.Intelligence.WorkingMemory do
   @moduledoc """
   A GenServer-based working memory system for maintaining and managing the agent's
-  short-term and long-term memory using Mnesia for persistence. This module provides 
+  short-term and long-term memory using DETS for persistence. This module provides 
   functionality to store, retrieve, and manage information in a structured way.
   
   The working memory is organized into different contexts (e.g., :conversation, :environment, :goals)
   to allow for better organization and retrieval of information.
   
-  Memories are persisted to disk and replicated across nodes in the cluster.
+  Memories are persisted to disk using DETS for reliability.
   """
   
   use GenServer
   require Logger
   
-  alias :mnesia, as: Mnesia
-  alias StarweaveCore.Intelligence.Storage.MnesiaWorkingMemory
+  alias StarweaveCore.Intelligence.Storage.DetsWorkingMemory
   
   @default_ttl :timer.hours(24)  # 24 hours default TTL
   
@@ -119,43 +118,30 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   # Server Callbacks
   
   @impl true
-  def init(_) do
-    # Start Mnesia if not already started
-    case Mnesia.start() do
-      :ok -> :ok
-      {:error, {:already_started, :mnesia}} -> :ok
-      error -> 
-        Logger.error("Failed to start Mnesia: #{inspect(error)}")
-        raise "Failed to start Mnesia: #{inspect(error)}"
-    end
+  def init(_opts) do
+    # Initialize DETS table
+    :ok = DetsWorkingMemory.init()
     
-    # Ensure the working memory table exists
-    case ensure_table() do
-      :ok -> 
-        Logger.info("WorkingMemory initialized successfully")
-        {:ok, %{}}
-      error ->
-        Logger.error("Failed to initialize WorkingMemory: #{inspect(error)}")
-        {:stop, error}
-    end
+    # Schedule cleanup of expired entries
+    schedule_cleanup()
+    
+    {:ok, %{}}
   end
   
   @impl true
   def handle_cast({:store, context, key, value, ttl, importance}, state) do
-    # Delegate to the Mnesia storage module
-    case MnesiaWorkingMemory.store(context, key, value, [ttl: ttl, importance: importance]) do
+    case DetsWorkingMemory.store(context, key, value, ttl, importance) do
       :ok -> 
-        Logger.debug("Stored in Mnesia: #{inspect({context, key})}")
-      error ->
-        Logger.error("Failed to store in Mnesia: #{inspect(error)}")
+        Logger.debug("Stored in working memory: #{inspect(context)}/#{inspect(key)}")
+      error -> 
+        Logger.error("Failed to store in working memory: #{inspect(error)}")
     end
-    
     {:noreply, state}
   end
   
   @impl true
   def handle_cast({:forget, context, key}, state) do
-    case MnesiaWorkingMemory.delete(context, key) do
+    case DetsWorkingMemory.delete(context, key) do
       :ok -> 
         Logger.debug("Forgot memory: #{inspect({context, key})}")
       error -> 
@@ -166,10 +152,10 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   
   @impl true
   def handle_cast({:clear_context, context}, state) do
-    case MnesiaWorkingMemory.get_context(context) do
+    case DetsWorkingMemory.get_context(context) do
       {:ok, entries} ->
         count = length(entries)
-        Enum.each(entries, fn %{key: key} -> MnesiaWorkingMemory.delete(context, key) end)
+        Enum.each(entries, fn %{key: key} -> DetsWorkingMemory.delete(context, key) end)
         Logger.debug("Cleared #{count} entries from context: #{inspect(context)}")
       error ->
         Logger.error("Failed to clear context: #{inspect(error)}")
@@ -179,21 +165,20 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   
   @impl true
   def handle_call({:retrieve, context, key}, _from, state) do
-    result = 
-      case MnesiaWorkingMemory.retrieve(context, key) do
-        {:ok, value} -> {:ok, value}
-        :not_found -> :not_found
-        error -> 
-          Logger.error("Error retrieving from working memory: #{inspect(error)}")
-          :not_found
-      end
+    result = case DetsWorkingMemory.retrieve(context, key) do
+      {:ok, value} -> {:ok, value}
+      :not_found -> :not_found
+      error -> 
+        Logger.error("Failed to retrieve from working memory: #{inspect(error)}")
+        :not_found
+    end
     {:reply, result, state}
   end
   
   @impl true
   def handle_call({:get_context, context}, _from, state) do
     result = 
-      case MnesiaWorkingMemory.get_context(context) do
+      case DetsWorkingMemory.get_context(context) do
         {:ok, entries} -> 
           entries
           |> Enum.map(fn %{key: k, value: v, metadata: m} -> {k, v, m} end)
@@ -213,11 +198,11 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   @impl true
   def handle_call({:search, query, _threshold, limit}, _from, state) do
     result = 
-      case MnesiaWorkingMemory.search(query, limit: limit) do
-        {:ok, results} ->
+      case DetsWorkingMemory.search(query) do
+        results when is_list(results) ->
           results
           |> Enum.take(limit)
-          |> Enum.map(fn %{key: k, value: v, metadata: m} -> {k, v, m.importance} end)
+          |> Enum.map(fn {k, v, %{importance: imp}} -> {k, v, imp} end)
         error ->
           Logger.error("Error searching working memory: #{inspect(error)}")
           []
@@ -227,28 +212,24 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   
   @impl true
   def handle_call(:persist_now, _from, state) do
-    # No-op with Mnesia as it handles persistence automatically
+    # No-op with DETS as it handles persistence automatically
     {:reply, :ok, state}
   end
   
   @impl true
-  def handle_info(msg, state) do
-    # Handle any periodic tasks or cleanup if needed
-    case msg do
-      _ ->
-        Logger.warning("Received unknown message: #{inspect(msg)}")
-        {:noreply, state}
-    end
+  def handle_info(:cleanup, state) do
+    # Cleanup is handled automatically by DetsWorkingMemory
+    # during retrieval operations
+    
+    # Schedule next cleanup
+    schedule_cleanup()
+    
+    {:noreply, state}
   end
   
-  defp ensure_table do
-    # The table is created by the Mnesia schema, just verify it exists
-    case Mnesia.table_info(:working_memory, :all) do
-      {:aborted, {:no_exists, _}} ->
-        Logger.error("Mnesia table :working_memory does not exist")
-        {:error, :table_not_found}
-      _ ->
-        :ok
-    end
+  # Schedules the next cleanup
+  defp schedule_cleanup do
+    # Clean up every hour
+    Process.send_after(self(), :cleanup, :timer.hours(1))
   end
 end

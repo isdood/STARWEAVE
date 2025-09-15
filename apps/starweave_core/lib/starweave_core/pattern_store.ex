@@ -1,12 +1,14 @@
 defmodule StarweaveCore.PatternStore do
   @moduledoc """
-  Distributed pattern store backed by Mnesia.
+  Pattern store backed by DETS for persistence.
+  
+  This module provides a simple key-value store for patterns using DETS.
+  Each pattern is stored with a unique ID as the key and the pattern data as the value.
   """
   use GenServer
-
-  alias StarweaveCore.Pattern
-  alias StarweaveCore.Pattern.Storage.MnesiaPatternStore
   require Logger
+
+  alias StarweaveCore.Pattern.Storage.DetsPatternStore
 
   # Public API
 
@@ -17,72 +19,112 @@ defmodule StarweaveCore.PatternStore do
 
   @doc """
   Stores a pattern in the database.
+  
+  ## Parameters
+    - `id`: The unique identifier for the pattern
+    - `pattern_data`: The pattern data to store (should be a map)
+  
+  Returns `:ok` on success or `{:error, reason}` on failure.
   """
-  @spec put(Pattern.t()) :: :ok | {:error, term()}
-  def put(%Pattern{} = pattern) do
-    case MnesiaPatternStore.put(pattern) do
-      :ok -> :ok
-      error -> 
-        Logger.error("Failed to store pattern: #{inspect(error)}")
-        error
-    end
+  @spec put(String.t(), map()) :: :ok | {:error, term()}
+  def put(id, pattern_data) when is_binary(id) and is_map(pattern_data) do
+    GenServer.call(__MODULE__, {:put, id, pattern_data})
   end
 
   @doc """
   Retrieves a pattern by ID.
+  
+  Returns `{:ok, pattern_data}` if found, `:not_found` if not found,
+  or `{:error, reason}` on failure.
   """
-  @spec get(String.t()) :: Pattern.t() | nil
+  @spec get(String.t()) :: {:ok, map()} | :not_found | {:error, term()}
   def get(id) when is_binary(id) do
-    case MnesiaPatternStore.get(id) do
-      {:ok, pattern} -> pattern
-      :not_found -> nil
-      error ->
-        Logger.error("Failed to retrieve pattern: #{inspect(error)}")
-        nil
-    end
+    GenServer.call(__MODULE__, {:get, id})
   end
 
   @doc """
-  Retrieves all patterns, sorted by insertion time (newest first).
+  Retrieves all patterns.
+  
+  Returns a list of `{id, pattern_data}` tuples.
   """
-  @spec all() :: [Pattern.t()]
+  @spec all() :: [{String.t(), map()}]
   def all do
-    case MnesiaPatternStore.all() do
-      {:ok, patterns} -> patterns
-      error ->
-        Logger.error("Failed to retrieve patterns: #{inspect(error)}")
-        []
-    end
+    GenServer.call(__MODULE__, :all)
+  end
+
+  @doc """
+  Deletes a pattern by ID.
+  
+  Returns `:ok` on success or `{:error, reason}` on failure.
+  """
+  @spec delete(String.t()) :: :ok | {:error, term()}
+  def delete(id) when is_binary(id) do
+    GenServer.call(__MODULE__, {:delete, id})
   end
 
   @doc """
   Deletes all patterns.
+  
+  Returns `:ok` on success or `{:error, reason}` on failure.
   """
-  @spec clear() :: :ok
+  @spec clear() :: :ok | {:error, term()}
   def clear do
-    case MnesiaPatternStore.clear() do
-      :ok -> :ok
-      error ->
-        Logger.error("Failed to clear patterns: #{inspect(error)}")
-        :error
-    end
+    GenServer.call(__MODULE__, :clear)
   end
 
   # GenServer callbacks
 
   @impl true
   def init(_opts) do
-    # No ETS table needed anymore
-    {:ok, %{}}
+    # Initialize DETS table
+    case DetsPatternStore.init() do
+      :ok -> 
+        {:ok, %{}}
+      error ->
+        Logger.error("Failed to initialize PatternStore: #{inspect(error)}")
+        {:stop, error}
+    end
   end
 
   @impl true
-  def handle_call({:put, %Pattern{} = pattern}, _from, state) do
-    {:reply, put(pattern), state}
+  def handle_call({:put, id, pattern_data}, _from, state) do
+    result = DetsPatternStore.put(id, pattern_data)
+    {:reply, result, state}
+  end
+
+  @impl true
+  def handle_call({:get, id}, _from, state) do
+    result = DetsPatternStore.get(id)
+    {:reply, result, state}
+  end
+
+  @impl true
+  def handle_call(:all, _from, state) do
+    result = case DetsPatternStore.all() do
+      {:ok, patterns} -> patterns
+      error ->
+        Logger.error("Failed to get all patterns: #{inspect(error)}")
+        []
+    end
+    {:reply, result, state}
+  end
+
+  @impl true
+  def handle_call({:delete, id}, _from, state) do
+    result = DetsPatternStore.delete(id)
+    {:reply, result, state}
   end
 
   @impl true
   def handle_call(:clear, _from, state) do
-    {:reply, clear(), state}
+    result = DetsPatternStore.clear()
+    {:reply, result, state}
+  end
+
+  @impl true
+  def terminate(_reason, _state) do
+    # Close the DETS table when the GenServer terminates
+    DetsPatternStore.close()
+    :ok
   end
 end

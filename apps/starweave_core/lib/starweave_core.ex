@@ -10,14 +10,14 @@ defmodule StarweaveCore do
   """
   @spec add_pattern(String.t(), String.t(), keyword()) :: :ok
   def add_pattern(id, data, opts \\ []) when is_binary(id) and is_binary(data) do
-    pattern = %Pattern{
+    pattern = %{
       id: id,
       data: data,
       metadata: Keyword.get(opts, :metadata, %{}),
       energy: Keyword.get(opts, :energy, 0.0)
     }
 
-    PatternStore.put(pattern)
+    PatternStore.put(id, pattern)
   end
 
   @doc """

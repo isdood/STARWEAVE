@@ -52,6 +52,39 @@ a:hover {
   text-decoration: underline;
 }
 
+/* Button Styles */
+button, .button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0.5rem 1rem !important;
+  font-weight: 600 !important;
+  border-radius: 0.375rem !important;
+  transition: all 0.2s ease-in-out !important;
+  cursor: pointer !important;
+  border: 2px solid transparent !important;
+}
+
+/* Action Buttons */
+button[phx-click="export_data"],
+button[phx-click="clear_all"] {
+  min-width: 120px !important;
+  padding: 0.625rem 1.25rem !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* View/Delete Item Buttons */
+button[phx-click^="show_item"],
+button[phx-click^="delete_item"] {
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+  padding: 0.5rem !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1) !important;
+}
+
 /* 3. LAYOUT & UTILITIES */
 .container {
   width: 100%;

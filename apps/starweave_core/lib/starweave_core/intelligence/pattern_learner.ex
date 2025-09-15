@@ -9,11 +9,9 @@ defmodule StarweaveCore.Intelligence.PatternLearner do
   use GenServer
   
   alias StarweaveCore.Intelligence.WorkingMemory
-  alias StarweaveCore.Intelligence.Attention
   
   # Default pattern learning parameters
   @default_min_confidence 0.7
-  @default_min_support 0.1
   @max_patterns_to_store 1000
   
   # Client API

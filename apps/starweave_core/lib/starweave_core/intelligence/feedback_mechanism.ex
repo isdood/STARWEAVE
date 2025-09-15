@@ -160,7 +160,7 @@ defmodule StarweaveCore.Intelligence.FeedbackMechanism do
     Process.send_after(self(), :process_feedback, :timer.minutes(5))
   end
   
-  defp expired_feedback?(feedback, now \\ NaiveDateTime.utc_now()) do
+  defp expired_feedback?(feedback, now) do
     # Check if feedback is older than TTL
     age = NaiveDateTime.diff(now, feedback.timestamp, :millisecond)
     age > @default_feedback_ttl

@@ -4,6 +4,8 @@ defmodule StarweaveLLM.MemoryIntegration do
   Provides intelligent memory access and pattern-based context enhancement.
   """
   
+  require Logger
+  
   alias StarweaveCore.PatternStore
   alias StarweaveCore.PatternMatcher
   
@@ -108,10 +110,10 @@ defmodule StarweaveLLM.MemoryIntegration do
   """
   @spec store_memory(String.t(), map()) :: {:ok, String.t()} | {:error, term()}
   def store_memory(content, metadata \\ %{}) do
-    pattern = %StarweaveCore.Pattern{
-      id: generate_memory_id(),
+    pattern_id = "memory_#{System.system_time(:millisecond)}_#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}"
+    pattern_data = %{
       data: content,
-      metadata: Map.merge(metadata, %{
+      metadata: Map.merge(metadata || %{}, %{
         type: "memory",
         created_at: DateTime.utc_now()
       }),
@@ -119,8 +121,12 @@ defmodule StarweaveLLM.MemoryIntegration do
       inserted_at: System.system_time(:millisecond)
     }
     
-    PatternStore.put(pattern)
-    {:ok, pattern.id}
+    case PatternStore.put(pattern_id, pattern_data) do
+      :ok -> {:ok, pattern_id}
+      error -> 
+        Logger.error("Failed to store memory: #{inspect(error)}")
+        error
+    end
   end
   
   @doc """
@@ -129,13 +135,17 @@ defmodule StarweaveLLM.MemoryIntegration do
   @spec update_memory_energy(String.t(), float()) :: :ok | {:error, term()}
   def update_memory_energy(memory_id, new_energy) do
     case PatternStore.get(memory_id) do
-      nil -> 
-        {:error, :memory_not_found}
-      
-      pattern ->
-        updated_pattern = %{pattern | energy: new_energy}
-        PatternStore.put(updated_pattern)
+      {:ok, pattern_data} ->
+        updated_pattern = Map.put(pattern_data, :energy, new_energy)
+        PatternStore.put(memory_id, updated_pattern)
         :ok
+        
+      :not_found ->
+        {:error, :memory_not_found}
+        
+      error ->
+        Logger.error("Error updating memory energy: #{inspect(error)}")
+        error
     end
   end
   

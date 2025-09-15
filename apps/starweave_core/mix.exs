@@ -28,8 +28,6 @@ defmodule StarweaveCore.MixProject do
     [
       # Core dependencies
       {:libring, "~> 1.7.0", runtime: true, override: true},
-      {:memento, "~> 0.3.2"},  # Mnesia wrapper for Elixir
-      {:ecto_sql, "~> 3.7"},   # For Ecto integration if needed
       
       # Test dependencies
       {:meck, "~> 0.9.2", only: :test},

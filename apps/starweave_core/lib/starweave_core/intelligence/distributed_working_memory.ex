@@ -302,6 +302,8 @@ defmodule StarweaveCore.Intelligence.DistributedWorkingMemory do
     :ok
   end
   
+  @doc false
+  @spec with_retry((() -> any()), pos_integer(), non_neg_integer()) :: any()
   defp with_retry(fun, max_attempts, delay) when max_attempts > 1 do
     try do
       fun.()
@@ -312,6 +314,8 @@ defmodule StarweaveCore.Intelligence.DistributedWorkingMemory do
     end
   end
   
+  @doc false
+  @spec with_retry((() -> any()), non_neg_integer(), non_neg_integer()) :: any()
   defp with_retry(fun, _max_attempts, _delay) do
     fun.()
   end

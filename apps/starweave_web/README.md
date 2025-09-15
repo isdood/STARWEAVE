@@ -61,7 +61,7 @@ Visit `http://localhost:4000` in your browser.
 ### Routes
 
 - `/` - Main application dashboard
-- `/ets-dashboard` - ETS table monitoring and management
+- `/dets-dashboard` - DETS storage monitoring and management
 - `/patterns` - Pattern visualization and analysis
 
 ### Directory Structure
