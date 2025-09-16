@@ -6,8 +6,6 @@ defmodule StarweaveCore.Intelligence.ReasoningEngine do
   
   use GenServer
   
-  alias StarweaveCore.Intelligence.WorkingMemory
-  
   # Client API
   
   def start_link(_opts) do

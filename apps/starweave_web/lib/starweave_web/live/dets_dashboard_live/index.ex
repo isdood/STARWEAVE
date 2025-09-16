@@ -7,7 +7,7 @@ defmodule StarweaveWeb.DetsDashboardLive.Index do
   # Define the DETS table names as module attributes for easy reference
   # Use the same table names as defined in the core modules
   @working_memory_table :starweave_working_memory
-  @pattern_store_table :starweave_pattern_store
+  @pattern_store_table :starweave_patterns
 
   @tick_interval 30_000  # 30 seconds
 

@@ -301,22 +301,4 @@ defmodule StarweaveCore.Intelligence.DistributedWorkingMemory do
     # 3. Updating the routing information
     :ok
   end
-  
-  @doc false
-  @spec with_retry((() -> any()), pos_integer(), non_neg_integer()) :: any()
-  defp with_retry(fun, max_attempts, delay) when max_attempts > 1 do
-    try do
-      fun.()
-    rescue
-      _e ->
-        Process.sleep(delay)
-        with_retry(fun, max_attempts - 1, delay)
-    end
-  end
-  
-  @doc false
-  @spec with_retry((() -> any()), non_neg_integer(), non_neg_integer()) :: any()
-  defp with_retry(fun, _max_attempts, _delay) do
-    fun.()
-  end
 end

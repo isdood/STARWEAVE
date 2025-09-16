@@ -9,7 +9,13 @@ defmodule StarweaveLlm.Application do
   def start(_type, _args) do
     children = [
       # Finch is started by starweave_web application
+      
+      # Start the Self-Knowledge system
+      {StarweaveLLM.SelfKnowledge.Supervisor, []}
     ]
+
+    # Start the Telemetry supervisor
+    StarweaveLlm.Telemetry.setup()
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
