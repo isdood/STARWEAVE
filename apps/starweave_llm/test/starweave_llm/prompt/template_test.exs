@@ -1,6 +1,6 @@
-defmodule StarweaveLLM.Prompt.TemplateTest do
+defmodule StarweaveLlm.Prompt.TemplateTest do
   use ExUnit.Case, async: true
-  alias StarweaveLLM.Prompt.Template
+  alias StarweaveLlm.Prompt.Template
 
   describe "render/2" do
     test "renders template with variables" do

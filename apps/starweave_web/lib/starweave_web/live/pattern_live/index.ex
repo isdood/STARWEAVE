@@ -7,7 +7,7 @@ defmodule StarweaveWeb.PatternLive.Index do
   use StarweaveWeb, :live_view
   require Logger
 
-  alias StarweaveLLM.ContextManager
+  alias StarweaveLlm.ContextManager
   alias StarweaveCore.Intelligence.WorkingMemory
   import StarweaveWeb.MarkdownHelper, only: [render_markdown: 1]
 

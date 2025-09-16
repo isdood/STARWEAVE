@@ -1,6 +1,6 @@
-defmodule StarweaveLLM.ContextManagerTest do
+defmodule StarweaveLlm.ContextManagerTest do
   use ExUnit.Case, async: true
-  alias StarweaveLLM.ContextManager
+  alias StarweaveLlm.ContextManager
 
   describe "new/1" do
     test "creates context manager with default settings" do

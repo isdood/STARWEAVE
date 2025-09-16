@@ -102,10 +102,19 @@ defmodule StarweaveCore.PatternStore do
   def handle_call(:all, _from, state) do
     result = case DetsPatternStore.all() do
       {:ok, patterns} -> patterns
-      error ->
-        Logger.error("Failed to get all patterns: #{inspect(error)}")
+      {:error, reason} ->
+        Logger.error("Failed to get patterns: #{inspect(reason)}")
         []
+      other ->
+        # This handles the case where DetsPatternStore.all/0 returns patterns directly
+        other
     end
+    
+    # Log at debug level if no patterns found (not an error condition)
+    if is_list(result) && Enum.empty?(result) do
+      Logger.debug("No patterns found in the pattern store")
+    end
+    
     {:reply, result, state}
   end
 

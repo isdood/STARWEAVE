@@ -120,15 +120,18 @@ defmodule StarweaveCore.Pattern.Storage.DetsPatternStore do
   Returns `{:ok, patterns}` where patterns is a list of `{id, pattern_data}` tuples,
   or `{:error, reason}` on failure.
   """
-  @spec all() :: [{pattern_id, pattern_data}]
+  @spec all() :: [pattern_data()] | {:error, term()}
   def all do
     :ok = ensure_open()
     case :dets.match_object(@dets_table, :_) do
       {:error, reason} -> 
-        Logger.error("Error reading from DETS: #{inspect(reason)}")
+        Logger.error("Failed to match objects in DETS table: #{inspect(reason)}")
+        {:error, reason}
+      patterns when is_list(patterns) -> 
+        patterns
+      other ->
+        Logger.warning("Unexpected result from :dets.match_object/2: #{inspect(other)}")
         []
-      objects -> 
-        objects
     end
   end
 

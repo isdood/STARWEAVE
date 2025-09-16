@@ -1,12 +1,12 @@
-defmodule StarweaveLLM.SelfKnowledge.Supervisor do
+defmodule StarweaveLlm.SelfKnowledge.Supervisor do
   @moduledoc """
   Supervisor for the Self-Knowledge system components.
   """
   
   use Supervisor
   
-  alias StarweaveLLM.SelfKnowledge
-  alias StarweaveLLM.SelfKnowledge.KnowledgeBase
+  alias StarweaveLlm.SelfKnowledge
+  alias StarweaveLlm.SelfKnowledge.KnowledgeBase
   
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, :ok, opts)

@@ -18,7 +18,7 @@ defmodule StarweaveLlm.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
+      extra_applications: [:logger, :inets, :ssl],
       mod: {StarweaveLlm.Application, []}
     ]
   end
@@ -27,6 +27,9 @@ defmodule StarweaveLlm.MixProject do
   defp deps do
     [
       {:req, "~> 0.5"},
+      {:bumblebee, "~> 0.5.0"},
+      {:exla, "~> 0.7.0", only: :dev},
+      {:nx, "~> 0.7.0", override: true},
       {:starweave_core, in_umbrella: true}
     ]
   end

@@ -1,10 +1,11 @@
-defmodule StarweaveLLM.SelfKnowledge.CodeIndexer do
+defmodule StarweaveLlm.SelfKnowledge.CodeIndexer do
   @moduledoc """
   Handles scanning and indexing the codebase for the self-knowledge system.
   """
 
   require Logger
-  alias StarweaveLLM.SelfKnowledge.KnowledgeBase
+  alias StarweaveLlm.SelfKnowledge.KnowledgeBase
+  alias StarweaveLlm.Embeddings.Supervisor, as: Embeddings
 
   @source_extensions [
     ".ex", 
@@ -88,14 +89,37 @@ defmodule StarweaveLLM.SelfKnowledge.CodeIndexer do
           content: content,
           last_updated: :os.system_time(:second),
           size: byte_size(content),
-          language: Path.extname(file_path) |> String.trim_leading(".")
+          language: Path.extname(file_path) |> String.trim_leading("."),
+          # Initialize with empty embedding, will be populated asynchronously
+          embedding: nil,
+          embedding_status: :pending
         }
         
-        # Use the file path as the ID for now
-        KnowledgeBase.put(knowledge_base, file_path, entry)
+        # Store the entry first
+        :ok = KnowledgeBase.put(knowledge_base, file_path, entry)
+        
+        # Generate and store embeddings asynchronously
+        Task.start_link(fn ->
+          case generate_embedding(entry) do
+            {:ok, embedding} ->
+              updated_entry = Map.merge(entry, %{
+                embedding: embedding,
+                embedding_status: :complete
+              })
+              KnowledgeBase.put(knowledge_base, file_path, updated_entry)
+              
+            {:error, reason} ->
+              Logger.error("Failed to generate embedding for #{file_path}: #{inspect(reason)}")
+              updated_entry = Map.put(entry, :embedding_status, :error)
+              KnowledgeBase.put(knowledge_base, file_path, updated_entry)
+          end
+        end)
+        
+        :ok
         
       {:error, reason} ->
         Logger.warning("Failed to read #{file_path}: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 
@@ -145,4 +169,21 @@ defmodule StarweaveLLM.SelfKnowledge.CodeIndexer do
       _ -> {:ok, 0}
     end
   end
+  
+  defp generate_embedding(%{content: content} = _entry) when is_binary(content) do
+    # Truncate content if too long to avoid overwhelming the model
+    content = 
+      content
+      |> String.slice(0, 4_096)  # Limit to first 4K characters
+      
+    case Embeddings.embed_texts([content]) do
+      {:ok, [embedding]} -> 
+        {:ok, embedding}
+      error -> 
+        Logger.error("Embedding generation failed: #{inspect(error)}")
+        error
+    end
+  end
+  
+  defp generate_embedding(_), do: {:error, :invalid_content}
 end

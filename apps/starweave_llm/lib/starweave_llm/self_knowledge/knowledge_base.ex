@@ -1,4 +1,4 @@
-defmodule StarweaveLLM.SelfKnowledge.KnowledgeBase do
+defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
   @moduledoc """
   Manages the DETS-based storage for the self-knowledge system.
   """
@@ -7,11 +7,23 @@ defmodule StarweaveLLM.SelfKnowledge.KnowledgeBase do
   require Logger
 
   alias __MODULE__
+  alias StarweaveLlm.Embeddings.Supervisor, as: Embeddings
+  
+  @type embedding :: [float()]
+  @type search_result :: %{
+    id: String.t(),
+    score: float(),
+    entry: map()
+  }
 
   defstruct [
     :table_name,
     :dets_path,
-    :dets_ref
+    :dets_ref,
+    # Cache for embeddings to avoid redundant calculations
+    embedding_cache: %{},
+    # Maximum number of results to return in similarity search
+    max_search_results: 10
   ]
 
   # Public API
@@ -62,11 +74,25 @@ defmodule StarweaveLLM.SelfKnowledge.KnowledgeBase do
   end
 
   @doc """
-  Searches for entries matching the given query.
+  Searches for entries matching the given query using text matching.
   """
-  def search(knowledge_base, query, opts \\ []) do
+  def search(knowledge_base, query, opts \\ []) when is_binary(query) do
     limit = Keyword.get(opts, :limit, 10)
-    GenServer.call(knowledge_base, {:search, query, limit})
+    use_semantic = Keyword.get(opts, :semantic, false)
+    
+    if use_semantic do
+      GenServer.call(knowledge_base, {:semantic_search, query, limit})
+    else
+      GenServer.call(knowledge_base, {:text_search, query, limit})
+    end
+  end
+  
+  @doc """
+  Performs a semantic search using vector similarity.
+  """
+  def semantic_search(knowledge_base, query_embedding, opts \\ []) when is_list(query_embedding) do
+    limit = Keyword.get(opts, :limit, 10)
+    GenServer.call(knowledge_base, {:vector_search, query_embedding, limit})
   end
 
   # GenServer Callbacks
@@ -145,9 +171,7 @@ defmodule StarweaveLLM.SelfKnowledge.KnowledgeBase do
   end
 
   @impl true
-  def handle_call({:search, query, limit}, _from, %{dets_ref: dets_ref} = state) do
-    # This is a simple string match - in a real implementation, you'd want to use
-    # vector similarity search or a more sophisticated text search
+  def handle_call({:text_search, query, limit}, _from, %{dets_ref: dets_ref} = state) do
     results = :dets.foldl(
       fn {id, %{content: content} = entry}, acc ->
         if String.contains?(String.downcase(content), String.downcase(query)) do
@@ -165,6 +189,47 @@ defmodule StarweaveLLM.SelfKnowledge.KnowledgeBase do
       results
       |> Enum.sort_by(& &1.score, :desc)
       |> Enum.take(limit)
+    
+    {:reply, {:ok, sorted_results}, state}
+  end
+  
+  @impl true
+  def handle_call({:semantic_search, query, limit}, from, %{dets_ref: _dets_ref} = state) do
+    # Generate embedding for the query
+    case Embeddings.embed_texts([query]) do
+      {:ok, [query_embedding]} ->
+        handle_call({:vector_search, query_embedding, limit}, from, state)
+        
+      error ->
+        Logger.error("Failed to generate query embedding: #{inspect(error)}")
+        {:reply, error, state}
+    end
+  end
+  
+  @impl true
+  def handle_call(
+    {:vector_search, query_embedding, limit}, 
+    _from, 
+    %{dets_ref: dets_ref, max_search_results: max_results} = state
+  ) do
+    results = :dets.foldl(
+      fn {id, %{embedding: embedding} = entry}, acc ->
+        if is_list(embedding) do
+          score = Embeddings.cosine_similarity(query_embedding, embedding)
+          [%{id: id, score: score, entry: entry} | acc]
+        else
+          acc
+        end
+      end,
+      [],
+      dets_ref
+    )
+    
+    # Sort by score (descending) and limit results
+    sorted_results = 
+      results
+      |> Enum.sort_by(& &1.score, :desc)
+      |> Enum.take(limit || max_results)
     
     {:reply, {:ok, sorted_results}, state}
   end

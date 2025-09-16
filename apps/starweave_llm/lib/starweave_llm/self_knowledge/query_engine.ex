@@ -1,9 +1,9 @@
-defmodule StarweaveLLM.SelfKnowledge.QueryEngine do
+defmodule StarweaveLlm.SelfKnowledge.QueryEngine do
   @moduledoc """
   Handles querying the self-knowledge base with natural language.
   """
 
-  alias StarweaveLLM.SelfKnowledge.KnowledgeBase
+  alias StarweaveLlm.SelfKnowledge.KnowledgeBase
   
   @doc """
   Queries the knowledge base with a natural language question.

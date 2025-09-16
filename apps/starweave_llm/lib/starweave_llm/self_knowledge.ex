@@ -1,4 +1,4 @@
-defmodule StarweaveLLM.SelfKnowledge do
+defmodule StarweaveLlm.SelfKnowledge do
   @moduledoc """
   Self-knowledge system for STARWEAVE that enables the AI to understand and reason about its own codebase.
   """

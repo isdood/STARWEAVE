@@ -32,28 +32,31 @@ The Self-Knowledge System is a core component of STARWEAVE that enables the AI t
 - ✅ Watches the codebase for changes
 - ✅ Parses Elixir/other source files
 - ✅ Extracts code chunks and metadata
-- ⏳ Generates embeddings using a local model (partial)
-- ✅ Updates the knowledge base
+- ✅ Generates embeddings using BERT model
+- ✅ Updates the knowledge base asynchronously
 
 #### 3.2 Knowledge Base ✅
 - ✅ DETS-based storage for code knowledge
-- ✅ Basic search capabilities
+- ✅ Basic text search capabilities
 - ✅ Versioning support
 - ✅ Index management
-- ⏳ Vector similarity search (partial)
+- ✅ Vector similarity search with cosine distance
+- ✅ Batch processing for efficient updates
 
-#### 3.3 Query Interface ⏳
-- ✅ Basic natural language to code search
-- ⏳ Context-aware code retrieval (basic implementation)
-- ⏳ Integration with LLM for better understanding (planned)
+#### 3.3 Embedding Service ✅
+
+#### 3.4 Query Interface 
+- Basic natural language to code search
+- Context-aware code retrieval (basic implementation)
+- Integration with LLM for better understanding (planned)
 
 ## Implementation Plan
 
-### Phase 1: Basic Indexing ✅
-1. ✅ Set up file system watcher for the codebase
-2. ✅ Implement Elixir source code parser (basic)
-3. ✅ Create basic DETS schema for code knowledge
-4. ⏳ Build embedding generation pipeline (in progress)
+### Phase 1: Basic Indexing 
+1. Set up file system watcher for the codebase
+2. Implement Elixir source code parser (basic)
+3. Create basic DETS schema for code knowledge
+4. Build embedding generation pipeline (in progress)
 
 ### Phase 2: Query Capabilities ⏳
 1. ⏳ Implement vector similarity search (basic implementation)

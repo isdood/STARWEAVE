@@ -4,9 +4,9 @@ defmodule StarweaveLlm.OllamaClient do
   """
   require Logger
 
-  alias StarweaveLLM.ContextManager
-  alias StarweaveLLM.MemoryIntegration
-  alias StarweaveLLM.Prompt.Template
+  alias StarweaveLlm.ContextManager
+  alias StarweaveLlm.MemoryIntegration
+  alias StarweaveLlm.Prompt.Template
 
   @type opts :: [
     model: String.t(), 

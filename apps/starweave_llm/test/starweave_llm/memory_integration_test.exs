@@ -1,6 +1,6 @@
-defmodule StarweaveLLM.MemoryIntegrationTest do
+defmodule StarweaveLlm.MemoryIntegrationTest do
   use ExUnit.Case, async: true
-  alias StarweaveLLM.MemoryIntegration
+  alias StarweaveLlm.MemoryIntegration
   alias StarweaveCore.Pattern
   alias StarweaveCore.PatternStore
 

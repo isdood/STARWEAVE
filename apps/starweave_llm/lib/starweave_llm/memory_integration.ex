@@ -1,4 +1,4 @@
-defmodule StarweaveLLM.MemoryIntegration do
+defmodule StarweaveLlm.MemoryIntegration do
   @moduledoc """
   Integrates LLM system with the pattern engine for memory retrieval and consolidation.
   Provides intelligent memory access and pattern-based context enhancement.

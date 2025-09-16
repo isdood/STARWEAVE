@@ -1,4 +1,4 @@
-defmodule StarweaveLLM.ContextManager do
+defmodule StarweaveLlm.ContextManager do
   @moduledoc """
   Manages conversation context and history for LLM interactions.
   Handles context window optimization and conversation state.
@@ -205,22 +205,4 @@ defmodule StarweaveLLM.ContextManager do
     end
   end
   
-  defmodule Conversation do
-    @moduledoc false
-    defstruct messages: []
-    
-    @type t :: %__MODULE__{
-      messages: list({:user | :assistant | :system, String.t()})
-    }
-    
-    def new, do: %__MODULE__{}
-    
-    def add_message(conversation, role, content) do
-      update_in(conversation.messages, &(&1 ++ [{role, content}]))
-    end
-    
-    def get_messages(conversation) do
-      conversation.messages
-    end
-  end
 end

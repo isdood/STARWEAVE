@@ -1,4 +1,4 @@
-defmodule StarweaveLLM.Prompt.Template do
+defmodule StarweaveLlm.Prompt.Template do
   @moduledoc """
   Handles dynamic prompt generation and template management.
   Supports template versioning and variable interpolation.
