@@ -97,30 +97,6 @@ defmodule StarweaveWeb.PatternLive.Index do
     {:noreply, assign(socket, :is_typing, false)}
   end
 
-  def handle_info({:llm_chat, message, _context_manager}, socket) do
-    case StarweaveLlm.OllamaClient.chat_with_context(
-           message,
-           nil,
-           model: llm_model(),
-           use_memory: true
-         ) do
-      {:ok, response} ->
-        {:noreply, assign(socket, :llm_response, response)}
-      {:error, error} ->
-        {:noreply, put_flash(socket, :error, "Error getting response: #{inspect(error)}")}
-    end
-  end
-
-  defp extract_personal_info(message) do
-    cond do
-      # Match patterns like "my name is Caleb" or "I'm Caleb"
-      name = Regex.named_captures(~r/(?:my name is|i[\s\']m|i am)\s+(?<name>[A-Za-z]+(?:\s+[A-Za-z]+)*)/i, message) |> get_in(["name"]) ->
-        {:name, String.trim(name)}
-      true ->
-        :no_match
-    end
-  end
-
   def handle_info({:llm_chat, message, context_manager}, socket) do
     case StarweaveLlm.OllamaClient.chat_with_context(
            message,
@@ -143,24 +119,54 @@ defmodule StarweaveWeb.PatternLive.Index do
           ttl: 86_400_000
         )
 
-        send(self(), {:typing_stopped})
-
-        {:noreply,
-         socket
-         |> assign(messages: socket.assigns.messages ++ [ai_message])
-         |> assign(:context_manager, updated_context)}
-
-      {:error, _reason} ->
-        error_message = %{
-          id: System.unique_integer([:positive]),
-          sender: "ai",
-          text: "I'm having trouble connecting to my language model right now. This might be due to system resource limitations. You can still interact with me for pattern recognition features!",
-          timestamp: DateTime.utc_now()
+        # Update the messages in the socket
+        updated_messages = socket.assigns.messages ++ [ai_message]
+        
+        {:noreply, 
+          socket 
+          |> assign(:messages, updated_messages)
+          |> assign(:context_manager, updated_context)
+          |> assign(:is_typing, false)  # Turn off typing indicator
+          |> assign(:is_loading, false)  # Ensure loading is turned off
         }
-
-        send(self(), {:typing_stopped})
-        {:noreply, update(socket, :messages, &(&1 ++ [error_message]))}
+        
+      {:error, error} ->
+        Logger.error("LLM Error: #{inspect(error)}")
+        {:noreply, 
+          socket
+          |> put_flash(:error, "Error getting response: #{inspect(error)}")
+          |> assign(:is_loading, false)  # Ensure loading is turned off on error
+        }
     end
+  end
+
+  defp extract_personal_info(message) do
+    cond do
+      # Match patterns like "my name is Caleb" or "I'm Caleb"
+      name = Regex.named_captures(~r/(?:my name is|i[\s\']m|i am)\s+(?<name>[A-Za-z]+(?:\s+[A-Za-z]+)*)/i, message) |> get_in(["name"]) ->
+        {:name, String.trim(name)}
+      true ->
+        :no_match
+    end
+  end
+
+  defp handle_llm_error(socket, error) do
+    Logger.error("LLM Error: #{inspect(error)}")
+    send(self(), {:typing_stopped})
+    
+    error_message = %{
+      id: System.unique_integer([:positive]),
+      sender: "ai",
+      text: "I'm having trouble connecting to my language model right now. This might be due to system resource limitations. You can still interact with me for pattern recognition features!",
+      timestamp: DateTime.utc_now()
+    }
+
+    {:noreply, 
+      socket
+      |> update(:messages, &(&1 ++ [error_message]))
+      |> put_flash(:error, "Error getting response: #{inspect(error)}")
+      |> assign(:is_loading, false)
+    }
   end
 
   def handle_info({:new_message, message}, socket) do

@@ -34,27 +34,44 @@ defmodule StarweaveLLM.MemoryIntegration do
     # Score patterns based on relevance to query
     scored_patterns = 
       patterns
-      |> Enum.map(fn pattern -> 
-        score = calculate_relevance_score(pattern, query)
-        {pattern, score}
+      |> Enum.map(fn 
+        {_id, pattern} = pattern_tuple -> 
+          score = calculate_relevance_score(pattern, query)
+          {pattern_tuple, score}
+        pattern ->
+          score = calculate_relevance_score(pattern, query)
+          {pattern, score}
       end)
       |> Enum.filter(fn {_pattern, score} -> score >= min_relevance end)
       |> Enum.sort_by(fn {_pattern, score} -> score end, :desc)
       |> Enum.take(limit)
     
     # Convert to memory results
-    Enum.map(scored_patterns, fn {pattern, score} ->
-      %{
-        id: pattern.id,
-        content: extract_content(pattern),
-        relevance_score: score,
-        timestamp: pattern.inserted_at,
-        pattern_data: %{
-          data: pattern.data,
-          metadata: pattern.metadata,
-          energy: pattern.energy
+    Enum.map(scored_patterns, fn 
+      {{id, pattern}, score} ->
+        %{
+          id: id || :crypto.strong_rand_bytes(16) |> Base.encode16(),
+          content: extract_content(pattern),
+          relevance_score: score,
+          timestamp: pattern[:inserted_at] || DateTime.utc_now(),
+          pattern_data: %{
+            data: pattern[:data],
+            metadata: pattern[:metadata] || %{},
+            energy: pattern[:energy] || 1.0
+          }
         }
-      }
+      {pattern, score} ->
+        %{
+          id: pattern[:id] || :crypto.strong_rand_bytes(16) |> Base.encode16(),
+          content: extract_content(pattern),
+          relevance_score: score,
+          timestamp: pattern[:inserted_at] || DateTime.utc_now(),
+          pattern_data: %{
+            data: pattern[:data],
+            metadata: pattern[:metadata] || %{},
+            energy: pattern[:energy] || 1.0
+          }
+        }
     end)
   end
   
@@ -194,34 +211,66 @@ defmodule StarweaveLLM.MemoryIntegration do
   
   # Private functions
   
-  defp calculate_relevance_score(pattern, query) do
-    # Simple TF-IDF inspired scoring
-    query_words = String.downcase(query) |> String.split(~r/\W+/)
-    content_words = String.downcase(pattern.data) |> String.split(~r/\W+/)
-    
-    # Count matching words
-    matches = 
-      query_words
-      |> Enum.count(fn word -> 
-        String.length(word) > 2 && word in content_words
-      end)
-    
-    # Calculate score based on matches and pattern energy
-    base_score = if length(query_words) > 0, do: matches / length(query_words), else: 0.0
-    energy_boost = pattern.energy * 0.2
-    
-    min(base_score + energy_boost, 1.0)
+  defp calculate_relevance_score({_id, pattern}, query) when is_binary(query) do
+    calculate_relevance_score(pattern, query)
   end
   
-  defp extract_content(pattern) do
-    case pattern.data do
-      content when is_binary(content) -> content
-      data when is_map(data) -> Map.get(data, :content, inspect(data))
-      other -> inspect(other)
+  defp calculate_relevance_score(pattern, query) when is_binary(query) do
+    try do
+      # Extract content and energy safely
+      content = extract_content(pattern)
+      energy = if is_map(pattern), do: Map.get(pattern, :energy, 0.0), else: 0.0
+      
+      # Ensure content is a string
+      content = if is_binary(content), do: content, else: inspect(content)
+      
+      # Simple Jaccard similarity scoring with energy boost
+      query_words = 
+        query 
+        |> String.downcase() 
+        |> String.split(~r/\W+/, trim: true)
+        
+      content_words = 
+        content
+        |> String.downcase() 
+        |> String.split(~r/\W+/, trim: true)
+      
+      # Skip if no content to compare
+      if Enum.empty?(query_words) or Enum.empty?(content_words) do
+        0.0
+      else
+      
+      # Calculate Jaccard similarity
+      query_set = MapSet.new(query_words)
+      content_set = MapSet.new(content_words)
+      
+      intersection_size = MapSet.intersection(query_set, content_set) |> MapSet.size()
+      union_size = MapSet.union(query_set, content_set) |> MapSet.size()
+      
+      # Calculate base score with Jaccard similarity
+      base_score = if union_size > 0, do: intersection_size / union_size, else: 0.0
+      
+      # Add energy boost (20% of pattern's energy)
+      energy_boost = (energy || 0.0) * 0.2
+      
+      # Ensure score is between 0 and 1
+        min(base_score + energy_boost, 1.0)
+      end
+    rescue
+      e ->
+        Logger.error("Error calculating relevance score: #{inspect(e)}")
+        0.0
     end
   end
   
-  defp generate_memory_id do
-    "memory_#{System.system_time(:millisecond)}_#{:crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)}"
-  end
+  defp calculate_relevance_score(_, _), do: 0.0
+  
+  defp extract_content({_id, %{data: content}}) when is_binary(content), do: content
+  defp extract_content({_id, %{data: data}}) when is_map(data), do: Map.get(data, :content, inspect(data))
+  defp extract_content({_id, map}) when is_map(map), do: Map.get(map, :content, inspect(map))
+  defp extract_content(%{data: content}) when is_binary(content), do: content
+  defp extract_content(%{data: data}) when is_map(data), do: Map.get(data, :content, inspect(data))
+  defp extract_content(pattern) when is_map(pattern), do: Map.get(pattern, :content, inspect(pattern))
+  defp extract_content(other), do: inspect(other)
+  
 end

@@ -63,13 +63,27 @@ button, .button {
 }
 
 /* Action Buttons */
-button[phx-click="export_data"],
-button[phx-click="clear_all"] {
+/* Action Buttons */
+button[phx-click="export_data"] {
   min-width: 120px !important;
   padding: 0.625rem 1.25rem !important;
   font-size: 0.875rem !important;
   line-height: 1.25rem !important;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+button[phx-click="clear_all"] {
+  min-width: 120px !important;
+  padding: 0.625rem 1.25rem !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  background-color: #dc2626 !important; /* red-600 */
+  border-color: #991b1b !important; /* red-800 */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+button[phx-click="clear_all"]:hover {
+  background-color: #b91c1c !important; /* red-700 */
 }
 
 /* View/Delete Item Buttons */

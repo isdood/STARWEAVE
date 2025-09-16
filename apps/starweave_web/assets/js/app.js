@@ -94,10 +94,28 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     })
 
-    // Handle Enter/Shift+Enter in chat input
-    document.addEventListener("keydown", function(e) {
-      const textarea = e.target
-      if (e.key === 'Enter' && textarea.matches("textarea")) {
+    // Debug: Log all LiveView events
+  document.addEventListener("phx:event", (e) => {
+    console.log("LiveView event:", e.detail.type, e.detail);
+  }, true);
+
+  // Debug: Log button clicks
+  document.addEventListener("click", function(e) {
+    if (e.target.closest("[phx-click]")) {
+      const target = e.target.closest("[phx-click]");
+      console.log("Button clicked:", {
+        id: target.id,
+        phxClick: target.getAttribute("phx-click"),
+        phxValueId: target.getAttribute("phx-value-id"),
+        target: target
+      });
+    }
+  });
+
+  // Handle Enter/Shift+Enter in chat input
+  document.addEventListener("keydown", function(e) {
+    const textarea = e.target
+    if (e.key === 'Enter' && textarea.matches("textarea")) {
         if (!e.shiftKey) {
           e.preventDefault()
           const form = textarea.closest('form')
