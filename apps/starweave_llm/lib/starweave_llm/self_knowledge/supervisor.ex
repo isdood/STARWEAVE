@@ -14,19 +14,25 @@ defmodule StarweaveLLM.SelfKnowledge.Supervisor do
   
   @impl true
   def init(:ok) do
-    # Ensure the registry is started
-    Registry.start_link(keys: :duplicate, name: KnowledgeBase.Registry)
-    
-    children = [
-      # KnowledgeBase worker
-      {KnowledgeBase, [
+    # Define the KnowledgeBase worker
+    knowledge_base_spec = {
+      KnowledgeBase, [
         name: KnowledgeBase,
         table_name: :starweave_self_knowledge,
         dets_path: Application.app_dir(:starweave_llm, "priv/data/self_knowledge.dets")
-      ]},
-      
-      # SelfKnowledge worker
-      {SelfKnowledge, []}
+      ]
+    }
+    
+    # Define the SelfKnowledge worker with a reference to the KnowledgeBase
+    self_knowledge_spec = {
+      SelfKnowledge, [
+        knowledge_base: KnowledgeBase
+      ]
+    }
+    
+    children = [
+      knowledge_base_spec,
+      self_knowledge_spec
     ]
     
     Supervisor.init(children, strategy: :one_for_one)

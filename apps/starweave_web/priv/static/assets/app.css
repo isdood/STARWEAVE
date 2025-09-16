@@ -283,6 +283,8 @@ button[phx-click^="delete_item"] {
   flex-shrink: 0;
   width: 2.5rem;
   height: 2.5rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
   border-radius: 0.5rem;
   border: none;
   background-color: var(--color-primary);
@@ -296,6 +298,14 @@ button[phx-click^="delete_item"] {
   flex: 0 0 auto;
   align-self: flex-end;
   margin-bottom: 0.25rem;
+  padding: 0;
+  overflow: hidden;
+}
+
+.send-button svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
 }
 
 .send-button:hover {

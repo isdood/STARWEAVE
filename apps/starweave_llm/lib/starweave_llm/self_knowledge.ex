@@ -18,6 +18,9 @@ defmodule StarweaveLLM.SelfKnowledge do
 
   @doc """
   Starts the SelfKnowledge GenServer.
+
+  ## Options
+    * `:knowledge_base` - An existing KnowledgeBase process to use instead of starting a new one.
   """
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -40,28 +43,42 @@ defmodule StarweaveLLM.SelfKnowledge do
   # GenServer Callbacks
 
   @impl true
-  def init(_opts) do
-    # Ensure the data directory exists
-    :ok = File.mkdir_p(Application.app_dir(:starweave_llm, "priv/data"))
-    dets_path = Path.join(Application.app_dir(:starweave_llm, "priv/data"), @dets_file)
-    
-    # Initialize the knowledge base
-    {:ok, knowledge_base} = KnowledgeBase.start_link(
-      table_name: @table_name,
-      dets_path: dets_path
-    )
-
-    # Initial index
-    if File.exists?(dets_path) do
-      :ok = KnowledgeBase.load(knowledge_base)
+  def init(opts) do
+    if knowledge_base = opts[:knowledge_base] do
+      # Use the provided knowledge base
+      schedule_check()
+      {:ok, %{knowledge_base: knowledge_base}}
     else
-      :ok = index_codebase(knowledge_base)
+      # Start a new knowledge base (for backward compatibility)
+      :ok = File.mkdir_p(Application.app_dir(:starweave_llm, "priv/data"))
+      dets_path = Path.join(Application.app_dir(:starweave_llm, "priv/data"), @dets_file)
+      
+      case KnowledgeBase.start_link(
+        table_name: @table_name,
+        dets_path: dets_path
+      ) do
+        {:ok, knowledge_base} ->
+          # Initial index
+          if File.exists?(dets_path) do
+            :ok = KnowledgeBase.load(knowledge_base)
+          else
+            :ok = index_codebase(knowledge_base)
+          end
+
+          # Schedule periodic checks
+          schedule_check()
+          {:ok, %{knowledge_base: knowledge_base}}
+          
+        {:error, {:already_started, pid}} ->
+          # KnowledgeBase is already running, just use the existing pid
+          schedule_check()
+          {:ok, %{knowledge_base: pid}}
+          
+        error ->
+          Logger.error("Failed to start KnowledgeBase: #{inspect(error)}")
+          error
+      end
     end
-
-    # Schedule periodic checks
-    schedule_check()
-
-    {:ok, %{knowledge_base: knowledge_base}}
   end
 
   @impl true

@@ -22,7 +22,8 @@ defmodule StarweaveLLM.SelfKnowledge.KnowledgeBase do
   def start_link(opts) do
     table_name = Keyword.fetch!(opts, :table_name)
     dets_path = Keyword.fetch!(opts, :dets_path)
-    GenServer.start_link(__MODULE__, {table_name, dets_path}, name: via_tuple(table_name))
+    name = Keyword.get(opts, :name, __MODULE__)
+    GenServer.start_link(__MODULE__, {table_name, dets_path}, name: name)
   end
 
   @doc """
@@ -73,26 +74,28 @@ defmodule StarweaveLLM.SelfKnowledge.KnowledgeBase do
   @impl true
   def init({table_name, dets_path}) do
     # Ensure the directory exists
-    File.mkdir_p(Path.dirname(dets_path))
+    dir_path = Path.dirname(dets_path)
     
-    # Open or create the DETS table
-    case :dets.open_file(table_name, [
-      {:file, dets_path},
-      {:type, :set},
-      {:auto_save, 60_000},  # Auto-save every minute
-      {:repair, true}
-    ]) do
-      {:ok, dets_ref} ->
-        Logger.info("Opened DETS table at #{dets_path}")
-        {:ok, %KnowledgeBase{
-          table_name: table_name,
-          dets_path: dets_path,
-          dets_ref: dets_ref
-        }}
-      
+    with :ok <- File.mkdir_p(dir_path),
+         {:ok, dets_ref} <- :dets.open_file(table_name, [
+           {:file, String.to_charlist(dets_path)},
+           {:type, :set},
+           {:auto_save, 60_000},  # Auto-save every minute
+           {:repair, true}
+         ]) do
+      Logger.info("Opened DETS table at #{dets_path}")
+      {:ok, %KnowledgeBase{
+        table_name: table_name,
+        dets_path: dets_path,
+        dets_ref: dets_ref
+      }}
+    else
       {:error, reason} ->
         Logger.error("Failed to open DETS table: #{inspect(reason)}")
         {:stop, reason}
+      error ->
+        Logger.error("Unexpected error initializing DETS table: #{inspect(error)}")
+        {:stop, error}
     end
   end
 
@@ -167,13 +170,21 @@ defmodule StarweaveLLM.SelfKnowledge.KnowledgeBase do
   end
 
   @impl true
-  def terminate(_reason, %{dets_ref: dets_ref}) do
-    :ok = :dets.close(dets_ref)
+  def terminate(_reason, %{dets_ref: dets_ref}) when is_reference(dets_ref) do
+    try do
+      :ok = :dets.close(dets_ref)
+    rescue
+      e ->
+        Logger.error("Error closing DETS table: #{inspect(e)}")
+        :ok
+    end
+  end
+  
+  def terminate(_reason, _state) do
+    :ok
   end
 
   # Private functions
 
-  defp via_tuple(name) do
-    {:via, Registry, {KnowledgeBase.Registry, name}}
-  end
+  # No longer using via tuple, using direct name registration instead
 end
