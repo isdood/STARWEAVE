@@ -3,6 +3,8 @@
 ## Overview
 The Self-Knowledge System enables STARWEAVE to understand and reason about its own codebase through semantic search and code analysis. This document tracks implementation status and next steps.
 
+This system should establish a foundation for adding additional databases to STARWEAVE in the future, ideally in a modular way.
+
 ## Architecture
 
 ### 1. Knowledge Representation
