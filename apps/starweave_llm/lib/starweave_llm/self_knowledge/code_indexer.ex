@@ -57,8 +57,6 @@ defmodule StarweaveLlm.SelfKnowledge.CodeIndexer do
   Checks if the codebase has changed since the last index.
   """
   def codebase_changed?(knowledge_base) do
-    # This is a simplified implementation that checks file mtimes
-    # In a real implementation, you'd want to track file hashes
     with {:ok, files} <- find_source_files(),
          {:ok, last_indexed} <- get_last_indexed(knowledge_base) do
       
@@ -81,41 +79,50 @@ defmodule StarweaveLlm.SelfKnowledge.CodeIndexer do
   defp index_file(knowledge_base, file_path) do
     case File.read(file_path) do
       {:ok, content} ->
-        # In a real implementation, you'd want to parse the file
-        # and extract meaningful chunks (functions, modules, etc.)
-        # For now, we'll just index the whole file
         entry = %{
           file_path: file_path,
           content: content,
           last_updated: :os.system_time(:second),
           size: byte_size(content),
           language: Path.extname(file_path) |> String.trim_leading("."),
-          # Initialize with empty embedding, will be populated asynchronously
           embedding: nil,
           embedding_status: :pending
         }
         
-        # Store the entry first
-        :ok = KnowledgeBase.put(knowledge_base, file_path, entry)
-        
-        # Generate and store embeddings asynchronously
-        Task.start_link(fn ->
-          case generate_embedding(entry) do
-            {:ok, embedding} ->
-              updated_entry = Map.merge(entry, %{
-                embedding: embedding,
-                embedding_status: :complete
-              })
-              KnowledgeBase.put(knowledge_base, file_path, updated_entry)
-              
-            {:error, reason} ->
-              Logger.error("Failed to generate embedding for #{file_path}: #{inspect(reason)}")
-              updated_entry = Map.put(entry, :embedding_status, :error)
-              KnowledgeBase.put(knowledge_base, file_path, updated_entry)
-          end
-        end)
-        
-        :ok
+        case KnowledgeBase.put(knowledge_base, file_path, entry) do
+          :ok ->
+            Task.start_link(fn ->
+              case generate_embedding(entry) do
+                {:ok, embedding} ->
+                  updated_entry = Map.merge(entry, %{
+                    embedding: embedding,
+                    embedding_status: :complete
+                  })
+                  case KnowledgeBase.put(knowledge_base, file_path, updated_entry) do
+                    :ok -> :ok
+                    error -> 
+                      Logger.error("Failed to update entry with embedding for #{file_path}: #{inspect(error)}")
+                  end
+                {:error, reason} ->
+                  Logger.error("Failed to generate embedding for #{file_path}: #{inspect(reason)}")
+                  updated_entry = Map.put(entry, :embedding_status, :error)
+                  case KnowledgeBase.put(knowledge_base, file_path, updated_entry) do
+                    :ok -> :ok
+                    error -> 
+                      Logger.error("Failed to update entry with error status for #{file_path}: #{inspect(error)}")
+                  end
+              end
+            end)
+            :ok
+            
+          {:error, reason} ->
+            Logger.error("Failed to store entry for #{file_path}: #{inspect(reason)}")
+            {:error, :storage_failed}
+            
+          other ->
+            Logger.error("Unexpected response from KnowledgeBase.put for #{file_path}: #{inspect(other)}")
+            {:error, :unexpected_response}
+        end
         
       {:error, reason} ->
         Logger.warning("Failed to read #{file_path}: #{inspect(reason)}")
@@ -171,7 +178,6 @@ defmodule StarweaveLlm.SelfKnowledge.CodeIndexer do
   end
   
   defp generate_embedding(%{content: content} = _entry) when is_binary(content) do
-    # Truncate content if too long to avoid overwhelming the model
     content = 
       content
       |> String.slice(0, 4_096)  # Limit to first 4K characters

@@ -158,8 +158,10 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
 
   @impl true
   def handle_call({:put, id, entry}, _from, %{dets_ref: dets_ref} = state) do
-    true = :dets.insert(dets_ref, {id, entry})
-    {:reply, :ok, state}
+    case :dets.insert(dets_ref, {id, entry}) do
+      true -> {:reply, :ok, state}
+      error -> {:reply, {:error, error}, state}
+    end
   end
 
   @impl true
