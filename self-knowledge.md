@@ -1,141 +1,123 @@
 # STARWEAVE Self-Knowledge System
 
 ## Overview
-The Self-Knowledge System is a core component of STARWEAVE that enables the AI to understand and reason about its own codebase. This document outlines the architecture and implementation plan for building this system.
+The Self-Knowledge System enables STARWEAVE to understand and reason about its own codebase through semantic search and code analysis. This document tracks implementation status and next steps.
 
 ## Architecture
 
 ### 1. Knowledge Representation
-- **Code Chunks**: Break down code into meaningful chunks (functions, modules, components)
-- **Embeddings**: Generate vector embeddings for semantic search
-- **Metadata**: Store additional context (file path, dependencies, last modified, etc.)
+- **Code Chunks**: Functions, modules, and components with metadata
+- **Embeddings**: Vector representations for semantic search (BERT-based)
+- **Metadata**: File paths, dependencies, timestamps, and context
 
-### 2. Data Model
+### 2. Data Model (Current Implementation)
 ```elixir
-%SelfKnowledge.Entry{
+%{
   id: String.t(),
   content: String.t(),
-  embedding: [float()],
+  embedding: [float()] | nil,
   file_path: String.t(),
-  module: String.t(),
-  function: String.t() | nil,
-  docstring: String.t() | nil,
+  line_number: integer() | nil,
   last_updated: DateTime.t(),
-  dependencies: [String.t()],
-  tags: [String.t()]
+  context: map() | nil  # Additional metadata and context
 }
 ```
 
-### 3. Components
+## Implementation Status
 
-#### 3.1 Code Indexer ✅
-- ✅ Watches the codebase for changes
-- ✅ Parses Elixir/other source files
-- ✅ Extracts code chunks and metadata
-- ✅ Generates embeddings using BERT model
-- ✅ Updates the knowledge base asynchronously
+### ✅ Completed Components
 
-#### 3.2 Knowledge Base ✅
-- ✅ DETS-based storage for code knowledge
-- ✅ Basic text search capabilities
-- ✅ Versioning support
-- ✅ Index management
-- ✅ Vector similarity search with cosine distance
-- ✅ Batch processing for efficient updates
+#### Knowledge Base
+- DETS-based persistent storage
+- CRUD operations for code knowledge
+- Vector similarity search with cosine distance
+- Text-based search capabilities
+- Error handling and recovery
 
-#### 3.3 Embedding Service ✅
+#### Query Service
+- Basic query parsing and routing
+- Integration with LLM for semantic search
+- Support for both text and vector searches
+- Context-aware result formatting
 
-#### 3.4 Query Interface 
-- Basic natural language to code search
-- Context-aware code retrieval (basic implementation)
-- Integration with LLM for better understanding (planned)
+### 🔄 In Progress
 
-## Implementation Plan
+#### Embedding Service
+- Integration with BERT/Sentence-BERT models
+- Batch processing of embeddings
+- Caching layer for performance
 
-### Phase 1: Basic Indexing 
-1. Set up file system watcher for the codebase
-2. Implement Elixir source code parser (basic)
-3. Create basic DETS schema for code knowledge
-4. Build embedding generation pipeline (in progress)
+#### Code Indexer
+- Basic file system watching
+- Code parsing and chunking
+- Incremental updates
 
-### Phase 2: Query Capabilities ⏳
-1. ⏳ Implement vector similarity search (basic implementation)
-2. ✅ Create basic query parser and processor
-3. ✅ Add basic natural language understanding
-4. ✅ Integrate with existing DETS dashboard
+### 📋 Next Steps (Priority Order)
+1. **Enhance Query Interface**
+   - Implement hybrid search (combining semantic and keyword search)
+   - Add result ranking and filtering
+   - Support for complex queries with multiple intents
 
-### Phase 3: Advanced Features
-1. Code change detection and incremental updates
-2. Cross-reference analysis
-3. Usage pattern tracking
-4. Automated documentation generation
+2. **Improve Code Understanding**
+   - Better context extraction (function docs, type specs)
+   - Cross-referencing between code elements
+   - Support for more file types
 
-## Database Schema
+3. **Performance Optimization**
+   - Implement caching for frequent queries
+   - Optimize DETS storage and retrieval
+   - Add batching for large codebases
 
-### DETS Tables
-1. `:code_chunks` - Primary storage for code knowledge
-2. `:embeddings` - Vector embeddings for semantic search
-3. `:file_metadata` - Tracking file changes and hashes
-4. `:dependencies` - Code dependency graph
-
-## Current Status
-
-### Completed
-- Basic code indexing and storage in DETS
-- File system monitoring for changes
-- Basic query interface
-- Integration with DETS dashboard
-- Telemetry setup
-
-### In Progress
-- Vector embeddings for semantic search
-- Advanced code parsing (extracting functions, modules, etc.)
-- Performance optimizations
-
-### Up Next
-- Enhanced natural language understanding
-- Cross-referencing between code elements
-- Automated documentation generation
+4. **Developer Experience**
+   - Better error messages and logging
+   - Progress tracking for indexing
+   - Integration with development tools
 
 ## Integration Points
 
-1. **LLM Integration**:
-   - Use embeddings for semantic search
-   - Provide code context in prompts
-   - Enable "explain this code" functionality
+### LLM Integration
+- [x] Basic semantic search via embeddings
+- [ ] Context-aware code explanations
+- [ ] Automated code documentation
+- [ ] "Explain this code" functionality
 
-2. **Development Workflow**:
-   - Git hooks for automatic updates
-   - CI/CD pipeline integration
-   - Development server hot-reload support
+### Development Workflow
+- [x] Basic file watching
+- [ ] Git hooks for automatic updates
+- [ ] CI/CD pipeline integration
 
-## Security Considerations
-- Validate all file system operations
-- Sanitize code before processing
-- Implement access controls for sensitive code
-- Consider rate limiting for queries
-
-## Future Enhancements
-1. Multi-language support
-2. Integration with documentation
-3. Automated test generation
-4. Performance optimization for large codebases
+## Security & Reliability
+- [x] Basic file operation validation
+- [ ] Rate limiting for queries
+- [ ] Access control for sensitive code
+- [ ] Backup and recovery procedures
 
 ## Getting Started
 
 ### Prerequisites
 - Elixir 1.12+
-- DETS database
-- Local embedding model (e.g., BERT, Sentence-BERT)
+- DETS database (automatically managed)
+- BERT/Sentence-BERT model for embeddings
 
-### Setup
-1. Clone the repository
-2. Run `mix deps.get`
-3. Start the development server with `iex -S mix phx.server`
-4. The self-knowledge system will automatically index the codebase
+### Quick Start
+```bash
+# Install dependencies
+mix deps.get
 
-## Monitoring and Maintenance
-- Monitor indexing performance
-- Track query patterns
-- Regular database maintenance
-- Backup and recovery procedures
+# Start the system
+iex -S mix phx.server
+```
+
+The system will automatically initialize the knowledge base and begin indexing available code.
+
+## Monitoring
+- Telemetry for query performance
+- Indexing status and progress
+- Error tracking and logging
+
+## Future Enhancements
+1. Multi-language support
+2. Automated test generation
+3. Integration with documentation tools
+4. Advanced code analysis (dependencies, usage patterns)
+5. Interactive code exploration UI

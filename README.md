@@ -56,15 +56,8 @@ STARWEAVE is an advanced cognitive architecture that explores the boundaries of 
    # Install Elixir dependencies
    mix deps.get
    
-   # Install Node.js dependencies
-   cd apps/starweave_web/assets && npm install && cd ../../..
-   
    # Set up Python environment
-   cd services/python
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   cd ../..
+   ./scripts/gRPC-init.sh
    ```
 
 3. **Start the system**
@@ -81,13 +74,6 @@ STARWEAVE is an advanced cognitive architecture that explores the boundaries of 
 
 4. **Access the dashboard**
    Open http://localhost:4000 in your browser
-
-## Documentation
-
-- [Pattern Engine](./docs/pattern-engine.md)
-- [Architecture Overview](./docs/architecture.md)
-- [Development Guide](./docs/development.md)
-- [API Reference](./docs/api-reference.md)
 
 ## Current Status
 

@@ -20,7 +20,10 @@ defmodule StarweaveLlm.SelfKnowledge.CodeIndexer do
     "deps",
     "node_modules",
     "priv/static",
-    "assets"
+    "assets",
+    ".elixir_ls",
+    "test",
+    "tmp"
   ]
 
   @doc """
@@ -89,8 +92,10 @@ defmodule StarweaveLlm.SelfKnowledge.CodeIndexer do
           embedding_status: :pending
         }
         
+        # Store the initial entry
         case KnowledgeBase.put(knowledge_base, file_path, entry) do
           :ok ->
+            # Start async task to generate and store embeddings
             Task.start_link(fn ->
               case generate_embedding(entry) do
                 {:ok, embedding} ->
@@ -103,6 +108,7 @@ defmodule StarweaveLlm.SelfKnowledge.CodeIndexer do
                     error -> 
                       Logger.error("Failed to update entry with embedding for #{file_path}: #{inspect(error)}")
                   end
+                
                 {:error, reason} ->
                   Logger.error("Failed to generate embedding for #{file_path}: #{inspect(reason)}")
                   updated_entry = Map.put(entry, :embedding_status, :error)
@@ -115,13 +121,9 @@ defmodule StarweaveLlm.SelfKnowledge.CodeIndexer do
             end)
             :ok
             
-          {:error, reason} ->
-            Logger.error("Failed to store entry for #{file_path}: #{inspect(reason)}")
-            {:error, :storage_failed}
-            
-          other ->
-            Logger.error("Unexpected response from KnowledgeBase.put for #{file_path}: #{inspect(other)}")
-            {:error, :unexpected_response}
+          error ->
+            Logger.error("Failed to store initial entry for #{file_path}: #{inspect(error)}")
+            error
         end
         
       {:error, reason} ->

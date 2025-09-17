@@ -1,10 +1,15 @@
 defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
   @moduledoc """
   Manages the DETS-based storage for the self-knowledge system.
+  
+  This module implements the SelfKnowledge.Behaviour to provide a persistent
+  storage backend for code knowledge and embeddings.
   """
 
   use GenServer
   require Logger
+  
+  @behaviour StarweaveLlm.SelfKnowledge.Behaviour
 
   alias __MODULE__
   alias StarweaveLlm.Embeddings.Supervisor, as: Embeddings
@@ -13,8 +18,13 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
   @type search_result :: %{
     id: String.t(),
     score: float(),
-    entry: map()
+    entry: map(),
+    # Additional metadata for LLM context
+    context: map() | nil
   }
+
+  @type vector :: [float()]
+  @type similarity_score :: float()
 
   defstruct [
     :table_name,
@@ -23,7 +33,13 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
     # Cache for embeddings to avoid redundant calculations
     embedding_cache: %{},
     # Maximum number of results to return in similarity search
-    max_search_results: 10
+    max_search_results: 10,
+    # Configuration for vector search
+    vector_search: %{
+      min_similarity: 0.6,  # Minimum similarity score to include in results
+      max_results: 5,       # Maximum number of results to return
+      include_context: true # Whether to include surrounding context in results
+    }
   ]
 
   # Public API
@@ -31,6 +47,7 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
   @doc """
   Starts the KnowledgeBase GenServer.
   """
+  @impl true
   def start_link(opts) do
     table_name = Keyword.fetch!(opts, :table_name)
     dets_path = Keyword.fetch!(opts, :dets_path)
@@ -43,6 +60,31 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
   """
   def load(knowledge_base) do
     GenServer.call(knowledge_base, :load)
+  end
+
+  @doc """
+  Performs a vector similarity search against the knowledge base.
+  
+  ## Parameters
+    * `query_embedding` - The vector embedding of the query
+    * `opts` - Options for the search
+      * `:min_similarity` - Minimum similarity score (0.0 to 1.0)
+      * `:max_results` - Maximum number of results to return
+      * `:include_context` - Whether to include surrounding context
+  """
+  @spec vector_search(pid() | atom(), vector(), keyword()) :: {:ok, [search_result()]} | {:error, any()}
+  @impl true
+  def vector_search(knowledge_base, query_embedding, opts \\ []) do
+    GenServer.call(knowledge_base, {:vector_search, query_embedding, opts})
+  end
+
+  @doc """
+  Updates the embedding for a specific entry in the knowledge base.
+  """
+  @spec update_embedding(pid() | atom(), String.t(), vector()) :: :ok | {:error, any()}
+  @impl true
+  def update_embedding(knowledge_base, id, embedding) do
+    GenServer.call(knowledge_base, {:update_embedding, id, embedding})
   end
 
   @doc """
@@ -62,6 +104,7 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
   @doc """
   Inserts or updates an entry in the knowledge base.
   """
+  @impl true
   def put(knowledge_base, id, entry) do
     GenServer.call(knowledge_base, {:put, id, entry})
   end
@@ -69,6 +112,7 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
   @doc """
   Retrieves an entry from the knowledge base by ID.
   """
+  @impl true
   def get(knowledge_base, id) do
     GenServer.call(knowledge_base, {:get, id})
   end
@@ -76,6 +120,7 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
   @doc """
   Searches for entries matching the given query using text matching.
   """
+  @impl true
   def search(knowledge_base, query, opts \\ []) when is_binary(query) do
     limit = Keyword.get(opts, :limit, 10)
     use_semantic = Keyword.get(opts, :semantic, false)
@@ -125,6 +170,13 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
     end
   end
 
+  # Basic CRUD operations
+  @impl true
+  def handle_call(:clear, _from, %{dets_ref: dets_ref} = state) do
+    :ok = :dets.delete_all_objects(dets_ref)
+    {:reply, :ok, state}
+  end
+
   @impl true
   def handle_call(:load, _from, %{dets_ref: dets_ref} = state) do
     # DETS is already loaded when we open it, so we just need to verify
@@ -151,20 +203,6 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
   end
 
   @impl true
-  def handle_call(:clear, _from, %{dets_ref: dets_ref} = state) do
-    :ok = :dets.delete_all_objects(dets_ref)
-    {:reply, :ok, state}
-  end
-
-  @impl true
-  def handle_call({:put, id, entry}, _from, %{dets_ref: dets_ref} = state) do
-    case :dets.insert(dets_ref, {id, entry}) do
-      true -> {:reply, :ok, state}
-      error -> {:reply, {:error, error}, state}
-    end
-  end
-
-  @impl true
   def handle_call({:get, id}, _from, %{dets_ref: dets_ref} = state) do
     case :dets.lookup(dets_ref, id) do
       [{^id, entry}] -> {:reply, {:ok, entry}, state}
@@ -173,10 +211,47 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
   end
 
   @impl true
+  def handle_call({:put, id, entry}, _from, %{dets_ref: dets_ref} = state) do
+    # Log the DETS info before insert for debugging
+    dets_info = :dets.info(dets_ref)
+    Logger.debug("DETS info before insert: #{inspect(dets_info, pretty: true)}")
+    
+    # Insert the entry
+    case :dets.insert(dets_ref, {id, entry}) do
+      :ok ->
+        # Verify the insert worked
+        case :dets.lookup(dets_ref, id) do
+          [{^id, _}] -> 
+            Logger.debug("Successfully inserted entry with ID: #{id}")
+            {:reply, :ok, state}
+          _ -> 
+            Logger.error("Failed to verify insert for ID: #{id}")
+            {:reply, {:error, :insert_failed}, state}
+        end
+      error ->
+        Logger.error("Failed to insert entry: #{inspect(error)}")
+        {:reply, error, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:update_embedding, id, embedding}, _from, %{dets_ref: dets_ref} = state) do
+    case :dets.lookup(dets_ref, id) do
+      [{^id, entry}] ->
+        updated_entry = Map.put(entry, :embedding, embedding)
+        :ok = :dets.insert(dets_ref, {id, updated_entry})
+        {:reply, {:ok, updated_entry}, state}
+      [] -> 
+        {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  # Search operations
   def handle_call({:text_search, query, limit}, _from, %{dets_ref: dets_ref} = state) do
+    query_lower = String.downcase(query)
     results = :dets.foldl(
       fn {id, %{content: content} = entry}, acc ->
-        if String.contains?(String.downcase(content), String.downcase(query)) do
+        if String.contains?(String.downcase(content), query_lower) do
           [%{id: id, score: 1.0, entry: entry} | acc]
         else
           acc
@@ -194,8 +269,7 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
     
     {:reply, {:ok, sorted_results}, state}
   end
-  
-  @impl true
+
   def handle_call({:semantic_search, query, limit}, from, %{dets_ref: _dets_ref} = state) do
     # Generate embedding for the query
     case Embeddings.embed_texts([query]) do
@@ -207,34 +281,73 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
         {:reply, error, state}
     end
   end
-  
-  @impl true
-  def handle_call(
-    {:vector_search, query_embedding, limit}, 
-    _from, 
-    %{dets_ref: dets_ref, max_search_results: max_results} = state
-  ) do
-    results = :dets.foldl(
-      fn {id, %{embedding: embedding} = entry}, acc ->
-        if is_list(embedding) do
-          score = Embeddings.cosine_similarity(query_embedding, embedding)
-          [%{id: id, score: score, entry: entry} | acc]
-        else
-          acc
-        end
-      end,
-      [],
-      dets_ref
-    )
-    
-    # Sort by score (descending) and limit results
-    sorted_results = 
-      results
+
+  def handle_call({:vector_search, query_embedding, opts}, _from, %{dets_ref: dets_ref, vector_search: vs_config} = state) do
+    # Merge provided options with defaults
+    min_similarity = Keyword.get(opts, :min_similarity, vs_config.min_similarity)
+    max_results = Keyword.get(opts, :max_results, vs_config.max_results)
+    include_context = Keyword.get(opts, :include_context, vs_config.include_context)
+
+    results =
+      :dets.foldl(
+        fn {id, entry}, acc ->
+          case entry do
+            %{embedding: embedding} when is_list(embedding) ->
+              score = cosine_similarity(query_embedding, embedding)
+              if score >= min_similarity do
+                result = %{
+                  id: id,
+                  score: score,
+                  entry: entry,
+                  context: if(include_context, do: get_context(entry), else: nil)
+                }
+                [result | acc]
+              else
+                acc
+              end
+            _ ->
+              acc
+          end
+        end,
+        [],
+        dets_ref
+      )
       |> Enum.sort_by(& &1.score, :desc)
-      |> Enum.take(limit || max_results)
-    
-    {:reply, {:ok, sorted_results}, state}
+      |> Enum.take(max_results)
+
+    {:reply, {:ok, results}, state}
   end
+
+  # Calculates the cosine similarity between two vectors
+  defp cosine_similarity(vec_a, vec_b) when is_list(vec_a) and is_list(vec_b) do
+    dot_product = dot_product(vec_a, vec_b)
+    magnitude_a = :math.sqrt(Enum.reduce(vec_a, 0, fn x, acc -> acc + x * x end))
+    magnitude_b = :math.sqrt(Enum.reduce(vec_b, 0, fn x, acc -> acc + x * x end))
+    
+    case magnitude_a * magnitude_b do
+      +0.0 -> +0.0
+      -0.0 -> +0.0
+      magnitude -> dot_product / magnitude
+    end
+  end
+
+  # Calculates the dot product of two vectors
+  defp dot_product(vec_a, vec_b) do
+    Enum.zip_with(vec_a, vec_b, fn a, b -> a * b end)
+    |> Enum.sum()
+  end
+
+  # Gets surrounding context for an entry
+  defp get_context(%{file_path: file_path, line_number: line_number}) when is_integer(line_number) do
+    # TODO: Implement context retrieval from source files
+    # This could include surrounding lines of code, function docs, etc.
+    %{
+      file_path: file_path,
+      line_number: line_number,
+      snippet: "..."  # Placeholder for actual context
+    }
+  end
+  defp get_context(_), do: nil
 
   @impl true
   def terminate(_reason, %{dets_ref: dets_ref}) when is_reference(dets_ref) do

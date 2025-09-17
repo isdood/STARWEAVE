@@ -30,7 +30,8 @@ defmodule StarweaveLlm.MixProject do
       {:bumblebee, "~> 0.5.0"},
       {:exla, "~> 0.7.0", only: :dev},
       {:nx, "~> 0.7.0", override: true},
-      {:starweave_core, in_umbrella: true}
+      {:starweave_core, in_umbrella: true},
+      {:mox, "~> 1.0", only: :test}
     ]
   end
 end

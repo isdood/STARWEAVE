@@ -1,6 +1,15 @@
 defmodule StarweaveLlm.Embeddings.BertEmbedder do
+  @moduledoc """
+  BERT-based text embedder that implements the Embeddings.Behaviour.
+  
+  This module uses BERT models to generate dense vector representations of text,
+  which can be used for semantic search and similarity calculations.
+  """
+  
   use GenServer
   require Logger
+  
+  @behaviour StarweaveLlm.Embeddings.Behaviour
   
   @default_model "sentence-transformers/all-MiniLM-L6-v2"
   @default_batch_size 8
@@ -65,6 +74,17 @@ defmodule StarweaveLlm.Embeddings.BertEmbedder do
   end
 
 
+  # Define the callback for the Embeddings.Behaviour
+  @impl true
+  @spec embed(String.t()) :: {:ok, [float()]} | {:error, atom()}
+  def embed(text) when is_binary(text) do
+    GenServer.call(__MODULE__, {:embed, [text]}, :infinity)
+    |> case do
+      {:ok, [embedding]} -> {:ok, embedding}
+      error -> error
+    end
+  end
+
   @doc """
   Generates embeddings for a list of texts.
 
@@ -72,8 +92,16 @@ defmodule StarweaveLlm.Embeddings.BertEmbedder do
   or `{:error, reason}` if the operation fails.
   """
   @spec embed(GenServer.server(), [String.t()]) :: {:ok, [list(float())]} | {:error, atom()}
-  def embed(server \\ __MODULE__, texts) when is_list(texts) do
-    GenServer.call(server, {:embed, texts})
+  def embed(server, texts) when is_list(texts) do
+    GenServer.call(server, {:embed, texts}, :infinity)
+  end
+
+  # For backward compatibility with the server-based API
+  def embed(server, text) when is_binary(text) do
+    case GenServer.call(server, {:embed, [text]}, :infinity) do
+      {:ok, [embedding]} -> {:ok, embedding}
+      error -> error
+    end
   end
 
   @doc """

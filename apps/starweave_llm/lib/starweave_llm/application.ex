@@ -13,7 +13,10 @@ defmodule StarweaveLlm.Application do
       {StarweaveLlm.Embeddings.Supervisor, []},
 
       # Start the Self-Knowledge system
-      {StarweaveLlm.SelfKnowledge.Supervisor, []}
+      {StarweaveLlm.SelfKnowledge.Supervisor, []},
+      
+      # Start the LLM services
+      {StarweaveLlm.LLM.Supervisor, []}
     ]
 
     # Start the Telemetry supervisor
