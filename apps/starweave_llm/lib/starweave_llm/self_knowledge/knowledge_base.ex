@@ -79,6 +79,22 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
   end
 
   @doc """
+  Performs a text-based search against the knowledge base.
+  
+  ## Parameters
+    * `query` - The search query string
+    * `opts` - Options for the search
+      * `:max_results` - Maximum number of results to return
+      * `:include_context` - Whether to include surrounding context
+      * `:min_score` - Minimum score threshold (0.0 to 1.0)
+  """
+  @spec text_search(pid() | atom(), String.t(), keyword()) :: {:ok, [search_result()]} | {:error, any()}
+  @impl true
+  def text_search(knowledge_base, query, opts \\ []) when is_binary(query) do
+    GenServer.call(knowledge_base, {:text_search, query, opts})
+  end
+
+  @doc """
   Updates the embedding for a specific entry in the knowledge base.
   """
   @spec update_embedding(pid() | atom(), String.t(), vector()) :: :ok | {:error, any()}
@@ -139,6 +155,18 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
     limit = Keyword.get(opts, :limit, 10)
     GenServer.call(knowledge_base, {:vector_search, query_embedding, limit})
   end
+  
+  @doc """
+  Retrieves all documents from the knowledge base for full-text search.
+  
+  ## Returns
+    * `{:ok, [document]}` - A list of document maps with at least :id and :content fields
+    * `{:error, reason}` - If the operation failed
+  """
+  @spec get_all_documents(pid() | atom()) :: {:ok, [map()]} | {:error, any()}
+  def get_all_documents(knowledge_base) do
+    GenServer.call(knowledge_base, :get_all_documents)
+  end
 
   # GenServer Callbacks
 
@@ -177,6 +205,30 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
     {:reply, :ok, state}
   end
 
+  @impl true
+  def handle_call(:get_all_documents, _from, %{dets_ref: dets_ref} = state) do
+    try do
+      documents = 
+        :dets.match_object(dets_ref, :_)
+        |> Enum.map(fn {_id, entry} ->
+          %{
+            id: entry.id,
+            content: entry.content || "",
+            file_path: entry.file_path || "",
+            metadata: entry.metadata || %{},
+            # Include any other relevant fields
+            embedding: entry.embedding
+          }
+        end)
+      
+      {:reply, {:ok, documents}, state}
+    catch
+      kind, reason ->
+        Logger.error("Failed to fetch all documents: #{inspect({kind, reason})}")
+        {:reply, {:error, reason}, state}
+    end
+  end
+  
   @impl true
   def handle_call(:load, _from, %{dets_ref: dets_ref} = state) do
     # DETS is already loaded when we open it, so we just need to verify
@@ -247,27 +299,56 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
   end
 
   # Search operations
-  def handle_call({:text_search, query, limit}, _from, %{dets_ref: dets_ref} = state) do
-    query_lower = String.downcase(query)
-    results = :dets.foldl(
-      fn {id, %{content: content} = entry}, acc ->
-        if String.contains?(String.downcase(content), query_lower) do
-          [%{id: id, score: 1.0, entry: entry} | acc]
-        else
-          acc
-        end
-      end,
-      [],
-      dets_ref
-    )
+  def handle_call({:text_search, query, opts}, _from, %{dets_ref: dets_ref} = state) do
+    max_results = Keyword.get(opts, :max_results, 5)
+    min_score = Keyword.get(opts, :min_score, 0.1)
+    include_context = Keyword.get(opts, :include_context, true)
     
-    # Sort by score (descending) and limit results
-    sorted_results = 
-      results
+    query_terms = String.downcase(query) |> String.split(~r/\s+/, trim: true)
+    
+    results =
+      :dets.foldl(
+        fn {id, %{content: content} = entry}, acc ->
+          content_lower = String.downcase(content)
+          
+          # Calculate a simple term frequency score
+          score = 
+            query_terms
+            |> Enum.reduce(0, fn term, acc_score ->
+              if String.contains?(content_lower, term) do
+                # Higher score for exact matches, partial matches get lower score
+                if String.contains?(content_lower, " #{term} ") or 
+                   String.starts_with?(content_lower, "#{term} ") or 
+                   String.ends_with?(content_lower, " #{term}") do
+                  acc_score + 1.0
+                else
+                  acc_score + 0.5
+                end
+              else
+                acc_score
+              end
+            end)
+            |> Kernel./(max(1, length(query_terms)))  # Normalize by number of terms
+          
+          if score >= min_score do
+            result = %{
+              id: id,
+              score: score,
+              entry: entry,
+              context: if(include_context, do: get_context(entry), else: nil)
+            }
+            [result | acc]
+          else
+            acc
+          end
+        end,
+        [],
+        dets_ref
+      )
       |> Enum.sort_by(& &1.score, :desc)
-      |> Enum.take(limit)
-    
-    {:reply, {:ok, sorted_results}, state}
+      |> Enum.take(max_results)
+
+    {:reply, {:ok, results}, state}
   end
 
   def handle_call({:semantic_search, query, limit}, from, %{dets_ref: _dets_ref} = state) do

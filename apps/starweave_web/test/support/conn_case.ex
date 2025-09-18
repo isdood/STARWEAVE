@@ -1,4 +1,4 @@
-defmodule StarweaveWebWeb.ConnCase do
+defmodule StarweaveWeb.ConnCase do
   @moduledoc """
   This module defines the test case to be used by
   tests that require setting up a connection.
@@ -6,32 +6,47 @@ defmodule StarweaveWebWeb.ConnCase do
   Such tests rely on `Phoenix.ConnTest` and also
   import other functionality to make it easier
   to build common data structures and query the data layer.
-
-  Finally, if the test case interacts with the database,
-  we enable the SQL sandbox, so changes done to the database
-  are reverted at the end of every test. If you are using
-  PostgreSQL, you can even run database tests asynchronously
-  by setting `use StarweaveWebWeb.ConnCase, async: true`, although
-  this option is not recommended for other databases.
   """
 
   use ExUnit.CaseTemplate
 
   using do
     quote do
-      # The default endpoint for testing
-      @endpoint StarweaveWebWeb.Endpoint
-
-      use StarweaveWebWeb, :verified_routes
-
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      import StarweaveWebWeb.ConnCase
+      
+      # The default endpoint for testing
+      @endpoint StarweaveWeb.Endpoint
+      
+      # Import test helpers
+      import StarweaveWeb.ConnCase
     end
   end
 
   setup _tags do
-    {:ok, conn: Phoenix.ConnTest.build_conn()}
+    # Configure the endpoint for testing
+    Application.put_env(:starweave_web, StarweaveWeb.Endpoint,
+      http: [port: 4002],
+      server: true,
+      secret_key_base: "test_secret_key_123456789012345678901234567890123456789012345678901234567890",
+      live_view: [signing_salt: "test_signing_salt"]
+    )
+    
+    # Start the endpoint if it's not already started
+    {:ok, _} = Application.ensure_all_started(:phoenix)
+    {:ok, _} = Application.ensure_all_started(:phoenix_live_view)
+    
+    # Start the endpoint if it's not already running
+    case Process.whereis(StarweaveWeb.Endpoint) do
+      nil -> start_supervised!(StarweaveWeb.Endpoint)
+      _pid -> :ok
+    end
+    
+    # Build a connection for testing
+    conn = Phoenix.ConnTest.build_conn()
+    
+    # Return the connection
+    {:ok, conn: conn}
   end
 end

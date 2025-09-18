@@ -53,6 +53,11 @@ defmodule StarweaveLlm.MockKnowledgeBaseStub do
   end
   
   @impl true
+  def text_search(_knowledge_base, _query, _opts \\ []) do
+    {:ok, []}
+  end
+  
+  @impl true
   def update_embedding(_knowledge_base, _id, _embedding), do: :ok
   
   @impl true

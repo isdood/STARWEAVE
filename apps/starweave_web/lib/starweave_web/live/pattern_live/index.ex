@@ -140,6 +140,14 @@ defmodule StarweaveWeb.PatternLive.Index do
     end
   end
 
+  def handle_info({:new_message, message}, socket) do
+    {:noreply, update(socket, :messages, &(&1 ++ [message]))}
+  end
+
+  def handle_info(%{event: event, payload: _payload}, socket) when event in ["pattern_recognized", "pattern_learned"] do
+    {:noreply, socket}
+  end
+
   defp extract_personal_info(message) do
     cond do
       # Match patterns like "my name is Caleb" or "I'm Caleb"
@@ -148,37 +156,6 @@ defmodule StarweaveWeb.PatternLive.Index do
       true ->
         :no_match
     end
-  end
-
-  defp handle_llm_error(socket, error) do
-    Logger.error("LLM Error: #{inspect(error)}")
-    send(self(), {:typing_stopped})
-    
-    error_message = %{
-      id: System.unique_integer([:positive]),
-      sender: "ai",
-      text: "I'm having trouble connecting to my language model right now. This might be due to system resource limitations. You can still interact with me for pattern recognition features!",
-      timestamp: DateTime.utc_now()
-    }
-
-    {:noreply, 
-      socket
-      |> update(:messages, &(&1 ++ [error_message]))
-      |> put_flash(:error, "Error getting response: #{inspect(error)}")
-      |> assign(:is_loading, false)
-    }
-  end
-
-  def handle_info({:new_message, message}, socket) do
-    {:noreply, update(socket, :messages, &(&1 ++ [message]))}
-  end
-
-  def handle_info(%{event: "pattern_recognized", payload: _payload}, socket) do
-    {:noreply, socket}
-  end
-
-  def handle_info(%{event: "pattern_learned", payload: _payload}, socket) do
-    {:noreply, socket}
   end
 
   @impl true

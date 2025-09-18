@@ -29,8 +29,8 @@ defmodule StarweaveLlm.MemoryIntegrationTest do
         inserted_at: System.system_time(:millisecond)
       }
       
-      PatternStore.put(pattern1)
-      PatternStore.put(pattern2)
+      :ok = PatternStore.put(pattern1.id, pattern1)
+      :ok = PatternStore.put(pattern2.id, pattern2)
       
       query = %{
         query: "weather",
@@ -54,7 +54,7 @@ defmodule StarweaveLlm.MemoryIntegrationTest do
           energy: 1.0,
           inserted_at: System.system_time(:millisecond)
         }
-        PatternStore.put(pattern)
+        :ok = PatternStore.put(pattern.id, pattern)
       end
       
       query = %{
@@ -76,7 +76,7 @@ defmodule StarweaveLlm.MemoryIntegrationTest do
         inserted_at: System.system_time(:millisecond)
       }
       
-              PatternStore.put(pattern)
+              :ok = PatternStore.put(pattern.id, pattern)
       
       query = %{
         query: "weather",
@@ -213,8 +213,8 @@ defmodule StarweaveLlm.MemoryIntegrationTest do
         inserted_at: System.system_time(:millisecond)
       }
       
-      PatternStore.put(pattern1)
-      PatternStore.put(pattern2)
+      :ok = PatternStore.put(pattern1.id, pattern1)
+      :ok = PatternStore.put(pattern2.id, pattern2)
       
       memories = MemoryIntegration.search_memories("weather", limit: 5, min_relevance: 0.3)
       
@@ -232,7 +232,7 @@ defmodule StarweaveLlm.MemoryIntegrationTest do
           energy: 1.0,
           inserted_at: System.system_time(:millisecond)
         }
-        PatternStore.put(pattern)
+        :ok = PatternStore.put(pattern.id, pattern)
       end
       
       memories = MemoryIntegration.search_memories("test", limit: 3, min_relevance: 0.1)

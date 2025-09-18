@@ -131,6 +131,39 @@ defmodule StarweaveWeb.GRPC.PatternClient do
     end
   end
 
+  # Public helper functions
+
+  @doc """
+  Builds a PatternRequest from a pattern map.
+  """
+  @spec build_pattern_request(map()) :: %PatternRequest{}
+  def build_pattern_request(pattern) when is_map(pattern) do
+    {:ok, request} = build_pattern_request(pattern, [])
+    request
+  end
+
+  @doc """
+  Builds a StatusRequest with the given detailed flag.
+  """
+  @spec build_status_request(boolean()) :: %StatusRequest{}
+  def build_status_request(detailed \\ false) do
+    %StatusRequest{detailed: detailed}
+  end
+
+  @doc """
+  Formats gRPC errors into human-readable strings.
+  """
+  @spec format_grpc_error(any()) :: String.t()
+  def format_grpc_error(%GRPC.RPCError{status: status, message: message}) do
+    "gRPC RPC error (status: #{status}): #{message}"
+  end
+  def format_grpc_error(error) when is_atom(error) do
+    "unknown error: #{inspect(error)}"
+  end
+  def format_grpc_error(error) do
+    "unknown error: #{inspect(error)}"
+  end
+
   # Private helper functions
 
   defp build_pattern_request(pattern, _opts) do

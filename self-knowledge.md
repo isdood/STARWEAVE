@@ -33,14 +33,15 @@ This system should establish a foundation for adding additional databases to STA
 - DETS-based persistent storage
 - CRUD operations for code knowledge
 - Vector similarity search with cosine distance
-- Text-based search capabilities
+- Text-based search capabilities with term frequency scoring
 - Error handling and recovery
 
 #### Query Service
 - Basic query parsing and routing
 - Integration with LLM for semantic search
-- Support for both text and vector searches
+- Support for hybrid search (semantic + keyword)
 - Context-aware result formatting
+- Result ranking and combination
 
 ### 🔄 In Progress
 
@@ -56,9 +57,10 @@ This system should establish a foundation for adding additional databases to STA
 
 ### 📋 Next Steps (Priority Order)
 1. **Enhance Query Interface**
-   - Implement hybrid search (combining semantic and keyword search)
-   - Add result ranking and filtering
-   - Support for complex queries with multiple intents
+   - ~~Implement hybrid search (combining semantic and keyword search)~~ ✅
+   - ~~Add result ranking and filtering~~ ✅
+   - ~~Support for complex queries with multiple intents~~ ✅
+   - ~~Improve keyword search with more sophisticated scoring (TF-IDF, BM25)~~ ✅
 
 2. **Improve Code Understanding**
    - Better context extraction (function docs, type specs)

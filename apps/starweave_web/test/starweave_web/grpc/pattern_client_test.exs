@@ -55,10 +55,7 @@ defmodule StarweaveWeb.GRPC.PatternClientTest do
 
       # Call the function with test patterns
       case PatternClient.stream_patterns(patterns) do
-        {:error, reason} ->
-          flunk("Failed to process patterns: #{inspect(reason)}")
-
-        responses when is_list(responses) ->
+        {:ok, responses} when is_list(responses) ->
           # Verify we got responses for each pattern
           assert length(responses) == length(patterns)
 
@@ -71,8 +68,11 @@ defmodule StarweaveWeb.GRPC.PatternClientTest do
             assert is_map(response.metadata)
           end)
 
+        {:error, reason} ->
+          flunk("Failed to process patterns: #{inspect(reason)}")
+
         other ->
-          flunk("Unexpected response: #{inspect(other)}")
+          flunk("Unexpected response format: #{inspect(other)}")
       end
     end
   end

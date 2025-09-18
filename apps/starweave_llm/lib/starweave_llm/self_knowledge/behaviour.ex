@@ -90,7 +90,23 @@ defmodule StarweaveLlm.SelfKnowledge.Behaviour do
     * `{:error, reason}` - If the search failed
   """
   @callback vector_search(pid() | atom(), [float()], keyword()) :: {:ok, [search_result()]} | {:error, any()}
+
+  @doc """
+  Performs a text-based search against the knowledge base.
   
+  ## Parameters
+    * `query` - The search query string
+    * `opts` - Search options
+      * `:min_score` - Minimum score threshold (0.0 to 1.0)
+      * `:max_results` - Maximum number of results to return
+      * `:include_context` - Whether to include surrounding context
+      
+  ## Returns
+    * `{:ok, [search_result()]}` - A list of search results
+    * `{:error, reason}` - If the search failed
+  """
+  @callback text_search(pid() | atom(), String.t(), keyword()) :: {:ok, [search_result()]} | {:error, any()}
+
   @doc """
   Updates the embedding for a specific entry.
   

@@ -1,7 +1,5 @@
 defmodule StarweaveWeb.DetsDashboardLive.Index do
   use StarweaveWeb, :live_view
-  alias StarweaveCore.Pattern.Storage.DetsPatternStore
-  alias StarweaveCore.Intelligence.Storage.DetsWorkingMemory
   require Logger
   
   # Define the DETS table names as module attributes for easy reference
@@ -42,6 +40,7 @@ defmodule StarweaveWeb.DetsDashboardLive.Index do
     {:noreply, fetch_dets_data(socket)}
   end
 
+  @impl true
   def handle_event("show_item", %{"id" => id}, socket) do
     # Find the item by ID and ensure data is properly formatted
     item = 
@@ -62,6 +61,11 @@ defmodule StarweaveWeb.DetsDashboardLive.Index do
       end
       
     {:noreply, assign(socket, show_modal: true, selected_item: item_with_formatted_data)}
+  end
+  
+  @impl true
+  def handle_event("close_modal", _, socket) do
+    {:noreply, assign(socket, show_modal: false, selected_item: nil)}
   end
   
   @impl true
@@ -111,6 +115,25 @@ defmodule StarweaveWeb.DetsDashboardLive.Index do
     end
   end
   
+  @impl true
+  def handle_event("clear_all", _params, socket) do
+    IO.puts("CLEAR_ALL: Clearing all items from DETS tables")
+    
+    # Clear all items from both DETS tables
+    :ok = :dets.delete_all_objects(@working_memory_table)
+    :ok = :dets.delete_all_objects(@pattern_store_table)
+    
+    # Update the UI with empty data
+    socket = assign(socket,
+      items: [],
+      item_count: 0,
+      total_size: 0,
+      last_updated: DateTime.utc_now()
+    )
+    
+    {:noreply, put_flash(socket, :info, "All items have been cleared")}
+  end
+  
   # Helper function to find an item by ID, handling different ID formats
   defp find_item_by_id(items, id) when is_binary(id) do
     # First try direct string comparison
@@ -142,18 +165,6 @@ defmodule StarweaveWeb.DetsDashboardLive.Index do
         Enum.find(items, &(to_string(&1.id) == to_string(id)))
       item ->
         item
-    end
-  end
-  
-  def handle_event("close_modal", _, socket) do
-    {:noreply, assign(socket, show_modal: false, selected_item: nil)}
-  end
-  
-  defp format_raw_data(data) when is_binary(data) do
-    if String.valid?(data) do
-      data
-    else
-      inspect(data, pretty: true, limit: :infinity, printable_limit: :infinity)
     end
   end
   
@@ -189,107 +200,6 @@ defmodule StarweaveWeb.DetsDashboardLive.Index do
     end
   end
   
-  defp ensure_dets_tables do
-    # The DETS tables are already initialized by the core application
-    # We just need to verify they're accessible
-    case :dets.info(@working_memory_table) do
-      :undefined -> 
-        IO.puts("DETS ERROR: Working memory table not found")
-        {:error, "Working memory table not initialized. Please ensure the core application is running."}
-      _ ->
-        IO.puts("DETS: Working memory table is available")
-        :ok
-    end
-  end
-
-  @impl true
-  def handle_event("clear_all", _params, socket) do
-    IO.puts("CLEAR_ALL: Received clear all request")
-    
-    # Ensure tables are accessible
-    case :dets.info(@working_memory_table) do
-      :undefined ->
-        error = "Working memory table not found. Is the core application running?"
-        IO.puts("CLEAR_ALL_ERROR: #{error}")
-        {:noreply, put_flash(socket, :error, error)}
-        
-      _ ->
-        try do
-          # Delete all objects from working memory
-          :ok = :dets.delete_all_objects(@working_memory_table)
-          
-          # Clear working memory
-          :ok = :dets.delete_all_objects(@working_memory_table)
-          :ok = :dets.sync(@working_memory_table)
-          
-          # Handle pattern store if it exists
-          pattern_store_cleared = 
-            case :dets.info(@pattern_store_table) do
-              :undefined -> 
-                IO.puts("CLEAR_ALL: Pattern store table not found, skipping")
-                true
-              _ ->
-                try do
-                  :ok = :dets.delete_all_objects(@pattern_store_table)
-                  :ok = :dets.sync(@pattern_store_table)
-                  true
-                rescue
-                  e ->
-                    IO.puts("CLEAR_ALL: Error clearing pattern store: #{inspect(e)}")
-                    false
-                end
-            end
-          
-          # Verify working memory is empty
-          working_count = case :dets.info(@working_memory_table, :size) do
-            :undefined -> 0
-            size -> size
-          end
-          
-          # Only check pattern store if we tried to clear it
-          pattern_count = if pattern_store_cleared do
-            case :dets.info(@pattern_store_table, :size) do
-              :undefined -> 0
-              size -> size
-            end
-          else
-            0  # If we didn't clear it, consider it cleared for the success check
-          end
-          
-          if working_count == 0 and pattern_count == 0 do
-            IO.puts("CLEAR_ALL: Successfully cleared all data")
-            {:noreply, 
-              socket 
-              |> assign(
-                items: [],
-                item_count: 0,
-                total_size: 0,
-                last_updated: DateTime.utc_now(),
-                show_modal: false,
-                selected_item: nil
-              )
-              |> put_flash(:info, "All data has been cleared successfully")}
-          else
-            error = "Failed to clear all data. Remaining items: Working=#{working_count}, Patterns=#{pattern_count}"
-            IO.puts("CLEAR_ALL_ERROR: #{error}")
-            {:noreply, put_flash(socket, :error, error)}
-          end
-          
-        rescue
-          e ->
-            error = "Error clearing DETS tables: #{inspect(e)}"
-            IO.puts("CLEAR_ALL_ERROR: #{error}")
-            IO.inspect(__STACKTRACE__)
-            {:noreply, put_flash(socket, :error, error)}
-        end
-    end
-  end
-  
-  # Helper function to update the dashboard UI
-  defp update_dashboard_ui(socket) do
-    fetch_dets_data(socket)
-  end
-
   @impl true
   def handle_info(:tick, socket) do
     Process.send_after(self(), :tick, @tick_interval)
