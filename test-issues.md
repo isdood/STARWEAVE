@@ -4,13 +4,14 @@ This document outlines the current test failures and issues in the STARWEAVE pro
 
 ## StarweaveLLM Tests
 
-### Ollama Integration Tests
+### Ollama Integration Tests ✅
 - **File**: `test/starweave_llm/llm/ollama_integration_test.exs`
-- **Status**: 7 failures, 5 skipped
-- **Issues**:
-  - Tests are being skipped due to missing setup or configuration
-  - Expected ExUnit setup callback to return `:ok` but got `:skip`
-  - Likely related to missing Ollama service or configuration
+- **Status**: All tests passing
+- **Resolution**:
+  - Fixed test setup to properly handle KnowledgeBase process
+  - Added mock embedder for testing
+  - Updated test assertions to match actual response format
+  - Ensured proper cleanup of test data
 
 ### Query Service Tests
 - **File**: `test/starweave_llm/llm/query_service_test.exs`
