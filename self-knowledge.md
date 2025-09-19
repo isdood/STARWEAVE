@@ -3,14 +3,21 @@
 ## Overview
 The Self-Knowledge System enables STARWEAVE to understand and reason about its own codebase through semantic search and code analysis. This document tracks implementation status and next steps.
 
-This system should establish a foundation for adding additional databases to STARWEAVE in the future, ideally in a modular way.
+## Primary Goal
+Enable STARWEAVE to answer questions about its own codebase by:
+1. Understanding when a user query requires knowledge base lookup
+2. Retrieving relevant code snippets and documentation
+3. Generating clear, context-aware responses with proper source attribution
+
+## Architecture
 
 ## Architecture
 
 ### 1. Knowledge Representation
 - **Code Chunks**: Functions, modules, and components with metadata
 - **Embeddings**: Vector representations for semantic search (BERT-based)
-- **Metadata**: File paths, dependencies, timestamps, and context
+- **Metadata**: File paths, line numbers, function signatures, and context
+- **Relationships**: Cross-references between related code elements
 
 ### 2. Data Model (Current Implementation)
 ```elixir
@@ -35,6 +42,7 @@ This system should establish a foundation for adding additional databases to STA
 - Vector similarity search with cosine distance
 - Text-based search capabilities with term frequency scoring
 - Error handling and recovery
+- Automatic file indexing on startup
 
 #### Query Service
 - Basic query parsing and routing
@@ -42,40 +50,54 @@ This system should establish a foundation for adding additional databases to STA
 - Support for hybrid search (semantic + keyword)
 - Context-aware result formatting
 - Result ranking and combination
+- Basic file system watching for changes
 
 ### 🔄 In Progress
+
+#### LLM Integration
+- Enhancing prompt engineering for knowledge base queries
+- Implementing query intent detection
+- Response generation with source attribution
+- Context management for multi-turn conversations
 
 #### Embedding Service
 - Integration with BERT/Sentence-BERT models
 - Batch processing of embeddings
 - Caching layer for performance
+- Incremental updates for changed files
 
 #### Code Indexer
-- Basic file system watching
-- Code parsing and chunking
-- Incremental updates
+- Improved code parsing and chunking
+- Syntax-aware code segmentation
+- Metadata extraction (function docs, types, etc.)
 
 ### 📋 Next Steps (Priority Order)
-1. **Enhance Query Interface**
-   - ~~Implement hybrid search (combining semantic and keyword search)~~ ✅
-   - ~~Add result ranking and filtering~~ ✅
-   - ~~Support for complex queries with multiple intents~~ ✅
-   - ~~Improve keyword search with more sophisticated scoring (TF-IDF, BM25)~~ ✅
+1. **Enhance LLM Integration**
+   - [x] Implement query intent detection to identify when knowledge base lookup is needed
+     - Added support for :knowledge_base, :documentation, and :code_explanation intents
+     - Implements simple pattern matching with LLM fallback
+     - Includes comprehensive test coverage
+   - [ ] Create prompt templates for code explanation and documentation
+   - [ ] Add source attribution to generated responses
+   - [ ] Implement conversation context tracking
 
 2. **Improve Code Understanding**
-   - Better context extraction (function docs, type specs)
-   - Cross-referencing between code elements
-   - Support for more file types
+   - [ ] Enhance context extraction (function docs, type specs, module attributes)
+   - [ ] Implement cross-referencing between related code elements
+   - [ ] Add support for Elixir-specific constructs (macros, protocols, behaviours)
+   - [ ] Improve handling of different file types
 
 3. **Performance Optimization**
-   - Implement caching for frequent queries
-   - Optimize DETS storage and retrieval
-   - Add batching for large codebases
+   - [ ] Implement caching for frequent queries
+   - [ ] Optimize DETS storage and retrieval
+   - [ ] Add batching for large codebases
+   - [ ] Implement background indexing for large repositories
 
-4. **Developer Experience**
-   - Better error messages and logging
-   - Progress tracking for indexing
-   - Integration with development tools
+4. **User Experience**
+   - [ ] Add visual indicators when knowledge base is being queried
+   - [ ] Implement response formatting with syntax highlighting
+   - [ ] Add support for follow-up questions
+   - [ ] Create a feedback mechanism for response quality
 
 ## Integration Points
 
@@ -84,11 +106,14 @@ This system should establish a foundation for adding additional databases to STA
 - [ ] Context-aware code explanations
 - [ ] Automated code documentation
 - [ ] "Explain this code" functionality
+- [ ] Query intent detection
+- [ ] Multi-turn conversation support
 
 ### Development Workflow
 - [x] Basic file watching
 - [ ] Git hooks for automatic updates
 - [ ] CI/CD pipeline integration
+- [ ] Automated testing of knowledge base responses
 
 ## Security & Reliability
 - [x] Basic file operation validation
@@ -100,6 +125,7 @@ This system should establish a foundation for adding additional databases to STA
 
 ### Prerequisites
 - Elixir 1.12+
+- Ollama with a suitable LLM model (e.g., llama3.1)
 - DETS database (automatically managed)
 - BERT/Sentence-BERT model for embeddings
 
@@ -112,7 +138,10 @@ mix deps.get
 iex -S mix phx.server
 ```
 
-The system will automatically initialize the knowledge base and begin indexing available code.
+The system will automatically:
+1. Initialize the knowledge base
+2. Index available code
+3. Start the web interface at http://localhost:4000
 
 ## Monitoring
 - Telemetry for query performance
@@ -120,8 +149,22 @@ The system will automatically initialize the knowledge base and begin indexing a
 - Error tracking and logging
 
 ## Future Enhancements
-1. Multi-language support
-2. Automated test generation
-3. Integration with documentation tools
-4. Advanced code analysis (dependencies, usage patterns)
-5. Interactive code exploration UI
+1. **Multi-language Support**
+   - Add support for JavaScript/TypeScript, Python, and other languages
+   - Language-specific syntax highlighting and parsing
+
+2. **Advanced Code Analysis**
+   - Call graph generation
+   - Usage pattern analysis
+   - Dead code detection
+
+3. **Developer Experience**
+   - VS Code/IDE integration
+   - Interactive code exploration UI
+   - Automated test generation
+   - Code review assistance
+
+4. **Knowledge Base Expansion**
+   - Integration with documentation tools
+   - Learning from external documentation
+   - Community-contributed knowledge

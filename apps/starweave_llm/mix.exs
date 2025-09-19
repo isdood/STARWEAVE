@@ -31,7 +31,16 @@ defmodule StarweaveLlm.MixProject do
       {:exla, "~> 0.7.0", only: :dev},
       {:nx, "~> 0.7.0", override: true},
       {:starweave_core, in_umbrella: true},
-      {:mox, "~> 1.0", only: :test}
+      {:mox, "~> 1.0", only: :test},
+      
+      # HTTP client for Ollama API
+      {:httpoison, "~> 2.0"},
+      
+      # JSON encoding/decoding
+      {:jason, "~> 1.4"},
+      
+      # Test dependencies
+      {:bypass, "~> 2.1", only: :test}
     ]
   end
 end

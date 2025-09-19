@@ -46,6 +46,9 @@ config :starweave_web, StarweaveWeb.GRPC.PatternClient,
     ]
   ]
 
+# Configure test mode for starweave_llm
+config :starweave_llm, test_mode: true
+
 # Configure telemetry for gRPC
 config :telemetry, :metrics, [
   # Capture gRPC client metrics

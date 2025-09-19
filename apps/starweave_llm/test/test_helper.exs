@@ -4,9 +4,19 @@ ExUnit.start()
 # Define the mock modules
 Mox.defmock(StarweaveLlm.MockBertEmbedder, for: StarweaveLlm.Embeddings.Behaviour)
 Mox.defmock(StarweaveLlm.MockKnowledgeBase, for: StarweaveLlm.SelfKnowledge.Behaviour)
+Mox.defmock(HTTPoison.Base, for: HTTPoison.Base)
 
 # Set Mox in global mode
 Application.put_env(:mox, :global_mock_server, true)
+
+# Configure test environment
+Application.put_env(:starweave_llm, :ollama_base_url, "http://localhost:11434/api")
+
+# Prevent application from starting during tests
+Application.put_env(:starweave_llm, :start_application, false)
+
+# Configure mock KnowledgeBase
+Application.put_env(:starweave_llm, :knowledge_base, StarweaveLlm.SelfKnowledge.KnowledgeBase.Mock)
 
 # Define a simple stub module for the embedder
 defmodule StarweaveLlm.MockBertEmbedderStub do
