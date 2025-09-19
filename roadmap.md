@@ -140,8 +140,9 @@ STARWEAVE/
 - [x] Add reinforcement learning integration
 - [x] Implement pattern-based learning
 - [x] Create feedback mechanisms
-- [x] Implement web dashboard for ETS persistent storage for memories (completed but not polished)
-- [x] Implement system to transfer ETS memories to disk based storage for true persistence
+- [x] Implement web dashboard for DETS persistent storage for memories (completed but not polished)
+- [x] Implement system to transfer DETS memories to disk based storage for true persistence
+- [~] Implement self-knowledge database, allowing the system to understand & query it's own codebase (in progress)
 - [ ] Add self-modification capabilities
 - [ ] Add persistent existence; Allow system to learn (for example by scraping the web or reading books) & self-modify as a background process, even when not interacting with a user
 
