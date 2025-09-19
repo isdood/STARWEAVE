@@ -1,10 +1,11 @@
 defmodule StarweaveLlm.ContextManager do
   @moduledoc """
-  Manages conversation context and history for LLM interactions.
-  Handles context window optimization and conversation state.
+  Manages the conversation context and history for LLM interactions.
+  Handles token counting, context window management, and conversation state.
   """
   
   alias __MODULE__.Conversation
+  alias StarweaveLlm.Context.PersistentContext
   
   @behaviour Access
   
@@ -13,7 +14,9 @@ defmodule StarweaveLlm.ContextManager do
     :max_tokens,
     :max_history,
     :token_count,
-    :summary_cache
+    :summary_cache,
+    :sources,
+    :user_id
   ]
   
   @type t :: %__MODULE__{
@@ -21,7 +24,9 @@ defmodule StarweaveLlm.ContextManager do
     max_tokens: pos_integer(),
     max_history: non_neg_integer(),
     token_count: non_neg_integer(),
-    summary_cache: map()
+    summary_cache: map(),
+    sources: %{optional(String.t()) => [map()]},
+    user_id: String.t() | nil
   }
   
   @default_max_tokens 4000
@@ -31,28 +36,75 @@ defmodule StarweaveLlm.ContextManager do
   Creates a new context manager with default settings.
   """
   @spec new(keyword()) :: t()
+  @doc """
+  Creates a new context with the given options.
+  
+  Options:
+  - :max_tokens - Maximum tokens for the context window (default: 4000)
+  - :max_history - Maximum number of messages to keep in history (default: 20)
+  - :user_id - User ID for persistent storage (optional)
+  """
   def new(opts \\ []) do
-    %__MODULE__{
+    user_id = Keyword.get(opts, :user_id)
+    
+    context = %__MODULE__{
       conversation: Conversation.new(),
       max_tokens: Keyword.get(opts, :max_tokens, @default_max_tokens),
       max_history: Keyword.get(opts, :max_history, @default_max_history),
       token_count: 0,
-      summary_cache: %{}
+      summary_cache: %{},
+      sources: %{},
+      user_id: user_id
     }
+    
+    # If user_id is provided, try to load existing context
+    if user_id do
+      case PersistentContext.load_context(user_id) do
+        {:ok, saved_context} -> 
+          %{saved_context | user_id: user_id}
+        _ -> 
+          context
+      end
+    else
+      context
+    end
   end
   
   @doc """
   Adds a message to the conversation history.
   """
-  @spec add_message(t(), String.t(), String.t()) :: t()
-  def add_message(context, role, content) when role in [:user, :assistant, :system] do
-    tokens = estimate_tokens(content)
+  @spec add_message(t(), String.t(), String.t(), list() | nil) :: t()
+  def add_message(context, role, content, sources \\ nil)
+  
+  def add_message(context, role, content, sources \\ nil) do
+    updated_context = 
+      case role do
+        role when role in [:user, :system] ->
+          tokens = estimate_tokens(content)
+          {updated_conv, _message_id} = Conversation.add_message(context.conversation, role, content)
+          
+          context
+          |> Map.put(:conversation, updated_conv)
+          |> update_in([:token_count], &(&1 + tokens))
+          
+        :assistant ->
+          tokens = estimate_tokens(content)
+          {updated_conv, message_id} = Conversation.add_message(context.conversation, :assistant, content, sources)
+          
+          context
+          |> Map.put(:conversation, updated_conv)
+          |> update_in([:token_count], &(&1 + tokens))
+          |> update_in([:sources], &Map.put(&1, message_id, sources || []))
+      end
+      |> maybe_trim_history()
+      |> maybe_compress_context()
     
-    context
-    |> update_in([:conversation], &Conversation.add_message(&1, role, content))
-    |> update_in([:token_count], &(&1 + tokens))
-    |> maybe_trim_history()
-    |> maybe_compress_context()
+    # Persist the context if user_id is set
+    if updated_context.user_id do
+      :ok = PersistentContext.save_context(updated_context, updated_context.user_id)
+    end
+    
+    updated_context
   end
   
   @doc """
@@ -62,7 +114,41 @@ defmodule StarweaveLlm.ContextManager do
   def get_context(context) do
     context.conversation
     |> Conversation.get_messages()
-    |> Enum.map_join("\n", fn {role, content} -> "#{role}: #{content}" end)
+    |> Enum.map_join("\n", fn {role, content, message_id} -> 
+      case role do
+        :assistant -> 
+          sources = Map.get(context.sources, message_id, [])
+          source_text = if sources != [], do: "\nSources:\n" <> format_sources(sources), else: ""
+          "#{role}: #{content}#{source_text}"
+        _ -> 
+          "#{role}: #{content}"
+      end
+    end)
+  end
+  
+  @doc """
+  Gets the sources for a specific assistant message.
+  """
+  @spec get_sources(t(), String.t()) :: [map()]
+  def get_sources(context, message_id) when is_binary(message_id) do
+    Map.get(context.sources, message_id, [])
+  end
+  
+  @spec get_sources_by_content(t(), String.t()) :: [map()]
+  def get_sources_by_content(context, content) do
+    case Enum.find(context.conversation.messages, fn {_role, msg_content, _id} -> msg_content == content end) do
+      {_role, _content, message_id} -> get_sources(context, message_id)
+      nil -> []
+    end
+  end
+  
+  defp format_sources(sources) do
+    sources
+    |> Enum.map(fn source ->
+      "- #{source[:title] || source[:url] || "Unknown source"}" <> 
+        if(source[:snippet], do: ": #{source[:snippet]}", else: "")
+    end)
+    |> Enum.join("\n")
   end
   
   @doc """
@@ -86,14 +172,24 @@ defmodule StarweaveLlm.ContextManager do
   end
   
   @doc """
-  Clears the conversation history while maintaining configuration.
+  Clears the conversation history and resets the context.
+  If the context has a user_id, also clears the persistent storage.
   """
   @spec clear(t()) :: t()
-  def clear(context) do
-    %{context | 
+  def clear(%{user_id: user_id} = context) when is_binary(user_id) do
+    :ok = PersistentContext.clear_context(user_id)
+    do_clear(context)
+  end
+  
+  def clear(context), do: do_clear(context)
+  
+  defp do_clear(context) do
+    %{
+      context |
       conversation: Conversation.new(),
       token_count: 0,
-      summary_cache: %{}
+      summary_cache: %{},
+      sources: %{}
     }
   end
   

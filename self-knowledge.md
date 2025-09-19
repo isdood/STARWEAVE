@@ -77,9 +77,18 @@ Enable STARWEAVE to answer questions about its own codebase by:
      - Added support for :knowledge_base, :documentation, and :code_explanation intents
      - Implements simple pattern matching with LLM fallback
      - Includes comprehensive test coverage
-   - [ ] Create prompt templates for code explanation and documentation
-   - [ ] Add source attribution to generated responses
-   - [ ] Implement conversation context tracking
+   - [x] Create prompt templates for code explanation and documentation
+     - Implemented template system with namespaced templates
+     - Added code explanation template with support for context, related functions, and references
+     - Created template management modules for chat and code templates
+   - [x] Add source attribution to generated responses
+     - Enhanced ContextManager to track sources with message IDs
+     - Integrated with WorkingMemory for persistent storage
+     - Improved response formatting with source metadata
+   - [x] Implement conversation context tracking
+     - Added PersistentContext for saving/loading conversation history
+     - Integrated with Memory.Supervisor for process management
+     - Supports user-specific conversation history
 
 2. **Improve Code Understanding**
    - [ ] Enhance context extraction (function docs, type specs, module attributes)

@@ -2,11 +2,26 @@ defmodule StarweaveLlm.Prompt.Template do
   @moduledoc """
   Handles dynamic prompt generation and template management.
   Supports template versioning and variable interpolation.
+  
+  Templates are stored in the `priv/templates` directory with the following structure:
+  ```
+  priv/
+    templates/
+      chat/           # Chat-related templates
+        system.md
+        knowledge_base_query.md
+      code/           # Code-related templates (TODO)
+  ```
   """
   
-  @type template_name :: atom()
+  @type template_name :: atom() | String.t()
+  @type template_namespace :: atom() | String.t()
   @type template_version :: String.t()
   @type variables :: map()
+  
+  @templates_dir :starweave_llm
+                 |> :code.priv_dir()
+                 |> Path.join("templates")
   
   @doc """
   Renders a prompt template with the given variables.
@@ -116,6 +131,63 @@ defmodule StarweaveLlm.Prompt.Template do
         {:error, reason} -> 
           {:error, "Failed to load template #{name} v#{version}: #{:file.format_error(reason)}"}
       end
+    end
+  end
+  
+  @doc """
+  Loads a template by name and namespace.
+  
+  ## Examples
+      iex> load_template(:system, :chat)
+      {:ok, "You are STARWEAVE..."}
+  """
+  @spec load_template(template_name(), template_namespace()) :: 
+          {:ok, String.t()} | {:error, String.t()}
+  def load_template(name, namespace) when is_atom(name) do
+    load_template(Atom.to_string(name), namespace)
+  end
+  
+  def load_template(name, namespace) when is_binary(name) and is_atom(namespace) do
+    load_template(name, Atom.to_string(namespace))
+  end
+  
+  def load_template(name, namespace) when is_binary(name) and is_binary(namespace) do
+    # First try the namespaced path
+    template_path = Path.join([@templates_dir, namespace, "#{name}.md"])
+    
+    case File.read(template_path) do
+      {:ok, content} -> 
+        {:ok, content}
+      {:error, _} -> 
+        # Fall back to legacy path for backward compatibility
+        load_legacy_template(name, "latest")
+    end
+  end
+  
+  # For backward compatibility
+  defp load_legacy_template(name, version) when is_binary(name) do
+    template_path = Path.join([@templates_dir, "#{name}.#{version}.eex"])
+    
+    case File.read(template_path) do
+      {:ok, content} -> 
+        {:ok, content}
+      {:error, reason} -> 
+        {:error, "Failed to load template #{name} v#{version}: #{:file.format_error(reason)}"}
+    end
+  end
+  
+  @doc """
+  Renders a template by name and namespace with the given variables.
+  
+  ## Examples
+      iex> render_template(:system, :chat, %{})
+      {:ok, "You are STARWEAVE..."}
+  """
+  @spec render_template(template_name(), template_namespace(), variables()) :: 
+          {:ok, String.t()} | {:error, String.t()}
+  def render_template(name, namespace, variables \\ %{}) do
+    with {:ok, template} <- load_template(name, namespace) do
+      render(template, variables)
     end
   end
   

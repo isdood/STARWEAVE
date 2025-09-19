@@ -9,6 +9,9 @@ defmodule StarweaveLlm.Application do
     children = [
       # Finch is started by starweave_web application
 
+      # Start the Memory system
+      {StarweaveLlm.Memory.Supervisor, []},
+
       # Start the Embeddings service
       {StarweaveLlm.Embeddings.Supervisor, []},
 

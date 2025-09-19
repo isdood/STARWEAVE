@@ -4,6 +4,14 @@ This document summarizes the core ideas from a discussion exploring the future o
 
 ---
 
+### Notes
+
+- This document is a work in progress and is subject to change.
+- This is based on my own personal experience & testing of various AI models of different sizes.
+- I've only just learned about MoE (Model of Experts) and it seems like it could be a better fit than dense 70b models. Following testing, I'll update this document.
+- I'm specifically exploring Mixtral 8x7B rather than 70b models.
+
+
 ## The Flaw in "Bigger is Better"
 
 The current trend in AI often focuses on scaling two main things: **context windows** and **parameter counts**. While this has yielded impressive results, it's an approach with diminishing returns and may not be the most intelligent path forward.
@@ -45,7 +53,3 @@ The 70B model becomes the **central reasoning engine** 🧠, acting like a skill
 The path forward for developing highly capable AI systems may not be a race to the largest possible model. Instead, the future likely lies in a hybrid approach: combining moderately-sized, highly efficient reasoning engines—like the ~70B models—with a rich, integrated ecosystem of external tools.
 
 This "smarter, not bigger" philosophy promises to deliver AI that is not only powerful but also more reliable, cost-effective, and practically useful for solving real-world problems.
-
-## Notes
-
-- This is based on my own personal experience & testing of various AI models of different sizes.

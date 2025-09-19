@@ -76,14 +76,39 @@ defmodule StarweaveLlm.LLM.QueryService do
     result = with {:ok, needs_search, search_query} <- determine_search_needed(query, updated_history, state.llm_client),
                  {:ok, search_results} <- maybe_search_knowledge_base(needs_search, search_query, state, opts),
                  {:ok, response} <- generate_llm_response(query, search_results, updated_history, state.llm_client) do
-      {:ok, response}
+      
+      # Get the sources from the search results
+      sources = Enum.map(search_results, fn %{entry: entry, score: score} ->
+        %{
+          title: entry.file_path || "Document",
+          url: get_in(entry, [:metadata, :url]),
+          snippet: String.slice(entry.content || "", 0, 200) <> "...",
+          score: score,
+          content: entry.content
+        }
+      end)
+      
+      # Format the response with sources if available
+      formatted_response = if sources != [] do
+        sources_text = format_sources_for_display(sources)
+        "#{response}\n\nSources:\n#{sources_text}"
+      else
+        response
+      end
+      
+      {:ok, formatted_response, sources}
     else
       error -> error
     end
     
     # Update state with new history
-    new_state = %{state | conversation_history: update_history(updated_history, {:assistant, result}, opts)}
-    {:reply, result, new_state}
+    case result do
+      {:ok, response, _sources} ->
+        new_state = %{state | conversation_history: update_history(updated_history, {:assistant, {:ok, response}}, opts)}
+        {:reply, {:ok, response}, new_state}
+      error ->
+        {:reply, error, state}
+    end
   end
   
   def handle_call({:streaming_query, query, opts}, from, state) do
@@ -155,24 +180,54 @@ defmodule StarweaveLlm.LLM.QueryService do
     end
   end
   
+  @doc """
+  Generates a response using the LLM based on the query and search results.
+  
+  ## Parameters
+    - query: The user's query
+    - results: List of search results with entries and metadata
+    - history: Conversation history (unused in current implementation)
+    - llm_client: The LLM client to use for generation
+    
+  Returns `{:ok, response}` where response is the generated text.
+  """
   defp generate_llm_response(query, [], _history, _llm_client) do
     # If no search results, return a friendly message
     if Application.get_env(:starweave_llm, :test_mode, false) do
       # In test mode, return an empty list when no results are found
-      {:ok, []}
+      {:ok, ""}
     else
-      {:ok, "I couldn't find any relevant information about '#{query}'. Could you try rephrasing your question?"}
+      {:ok, "I couldn't find any information related to your query: #{query}"}
     end
   end
   
-  defp generate_llm_response(_query, results, _history, _llm_client) do
+  defp generate_llm_response(query, results, _history, _llm_client) do
     # Format the response using our template
     if Application.get_env(:starweave_llm, :test_mode, false) do
-      # In test mode, return the raw results for easier testing
-      {:ok, results}
-    else
-      response = PromptTemplates.format_knowledge_response("your query", results)
+      # In test mode, return a simple formatted response for testing
+      response = results
+        |> Enum.with_index(1)
+        |> Enum.map_join("\n", fn {%{entry: entry, score: _}, idx} ->
+          "#{idx}. #{entry.file_path || "Unknown"}"
+        end)
+      
       {:ok, response}
+    else
+      # Format the results into a readable response
+      context = results
+        |> Enum.with_index(1)
+        |> Enum.map_join("\n\n", fn {%{entry: entry, score: score}, idx} ->
+          """
+          ## Result #{idx} (Relevance: #{:erlang.float_to_binary(score, decimals: 3)})
+          **Source:** #{entry.file_path || "Unknown"}
+          
+          #{String.slice(entry.content || "", 0..500)}...
+          """
+        end)
+      
+      # In a real implementation, we would call the LLM here to generate a response
+      # For now, we'll just return the formatted context
+      {:ok, "Here's what I found related to your query: #{query}\n\n#{context}"}
     end
   end
   
@@ -409,27 +464,87 @@ defmodule StarweaveLlm.LLM.QueryService do
   end
 
   @doc """
-  Generates a natural language response based on search results.
+  Generates a natural language response based on search results with source attribution.
+  
+  ## Parameters
+    - query: The user's query
+    - results: List of search results with entries and metadata
+    - opts: Additional options
+      - :include_sources (boolean): Whether to include source attribution (default: true)
+      - :max_sources (integer): Maximum number of sources to include (default: 3)
+      
+  Returns `{:ok, {response, sources}}` where:
+    - response: The generated response text
+    - sources: List of source metadata for attribution
   """
-  @spec generate_response(String.t(), [map()], keyword()) :: {:ok, String.t()} | {:error, any()}
-  def generate_response(query, results, _opts) do
-    # Format the context from search results
-    context = format_search_results(results)
+  @spec generate_response(String.t(), [map()], keyword()) :: 
+          {:ok, {String.t(), [map()]}} | {:error, any()}
+  def generate_response(query, results, opts \\ []) do
+    include_sources = Keyword.get(opts, :include_sources, true)
+    max_sources = Keyword.get(opts, :max_sources, 3)
     
-    # In a real implementation, we would generate a prompt and call an LLM service (e.g., Ollama)
-    # For now, we'll return a simple response with the query and context
-    {:ok, "Here's what I found related to your query: #{query}\n\n" <> context}
+    # Format the context from search results
+    {context, sources} = format_search_results(results, max_sources)
+    
+    # Generate the response using the LLM
+    response = case call_llm(query, context, opts) do
+      {:ok, llm_response} -> llm_response
+      _ -> "I found some information related to your query: #{query}"
+    end
+    
+    # Include sources in the response if enabled
+    final_response = if include_sources and sources != [] do
+      sources_text = format_sources_for_display(sources)
+      "#{response}\n\nSources:\n#{sources_text}"
+    else
+      response
+    end
+    
+    {:ok, {final_response, sources}}
   end
 
-  defp format_search_results(results) do
-    results
+  # Calls the LLM to generate a response based on the query and context
+  defp call_llm(query, context, _opts) do
+    # This is a placeholder for the actual LLM call
+    # In a real implementation, this would call your LLM service
+    {:ok, "Here's what I found related to your query: #{query}\n\n#{context}"}
+  end
+
+  # Formats search results into a context string and extracts source metadata
+  defp format_search_results(results, max_sources) do
+    {formatted, sources} = 
+      results
+      |> Enum.take(max_sources)
+      |> Enum.map_reduce([], fn %{entry: entry, score: score}, acc ->
+        source_metadata = %{
+          title: entry.file_path || "Document",
+          url: entry.metadata[:url],
+          snippet: String.slice(entry.content || "", 0, 200) <> "...",
+          score: score,
+          content: entry.content
+        }
+        
+        formatted = """
+        Source: #{entry.file_path || "Unknown"}
+        Relevance: #{:erlang.float_to_binary(score, decimals: 3)}
+        Content: #{String.slice(entry.content || "", 0..200)}...
+        """
+        
+        {formatted, [source_metadata | acc]}
+      end)
+    
+    {Enum.join(formatted, "\n\n"), Enum.reverse(sources)}
+  end
+  
+  # Formats source metadata for display in the response
+  defp format_sources_for_display(sources) do
+    sources
     |> Enum.with_index(1)
-    |> Enum.map_join("\n\n", fn {%{entry: entry, score: score}, idx} ->
-      """
-      #{idx}. File: #{entry.file_path || "Unknown"}
-         Score: #{:erlang.float_to_binary(score, decimals: 3)}
-         Content: #{String.slice(entry.content || "", 0..200)}...
-      """
+    |> Enum.map_join("\n", fn {source, idx} ->
+      title = source[:title] || "Document #{idx}"
+      snippet = if source[:snippet], do: ": #{source[:snippet]}", else: ""
+      url = if source[:url], do: " (${source[:url]})", else: ""
+      "#{idx}. #{title}#{url}#{snippet}"
     end)
   end
 end
