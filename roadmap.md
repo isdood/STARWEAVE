@@ -171,6 +171,9 @@ STARWEAVE/
 - [ ] Add monitoring and logging
 - [ ] Create deployment documentation
 
+### QOL
+- [ ] Add ability to switch between models on the fly without restarting the system from the web interface
+
 ## 🌟 Phase 5: Advanced Capabilities (Weeks 17-20)
 
 ### Advanced Learning
