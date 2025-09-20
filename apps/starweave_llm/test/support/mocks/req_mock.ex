@@ -2,6 +2,8 @@ defmodule StarweaveLlm.Mocks.ReqMock do
   @moduledoc """
   Mox mock for the Req module.
   """
+  
+  alias StarweaveLlm.Config
   use Mox
 
   @spec request(map()) :: {:ok, map()} | {:error, any()}
@@ -11,7 +13,7 @@ defmodule StarweaveLlm.Mocks.ReqMock do
         # Verify the request body
         assert request.method == :post
         assert request.json == %{
-          model: "llama3.1",
+          model: Config.default_model(),
           prompt: "test prompt",
           temperature: 0.7,
           max_tokens: 2048,

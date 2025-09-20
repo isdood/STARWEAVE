@@ -7,8 +7,9 @@ This document outlines a strategy for selecting and implementing local Large Lan
 ### Notes
 
 - This document is a work in progress and is subject to change.
+- This is based on my own personal experience & testing of various AI models of different sizes.
 - I've only just learned about MoE (Model of Experts) and it seems like it could be a better fit than dense 70b models. Following testing, I'll update this document.
-- I'm specifically exploring Mixtral 8x7B rather than 70b models.
+- I'm specifically exploring Mixtral 8x7B or gpt-oss:120b rather than 70b models - both of which are performant enough on my hardware.
 
 ### The Core Challenge: VRAM as a Bottleneck
 

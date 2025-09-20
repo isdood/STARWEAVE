@@ -20,7 +20,7 @@ defmodule StarweaveLlm.LLM.CodeTemplates do
     - `see_also`: List of related resources or files
   """
   @spec explain_code(String.t(), String.t(), keyword()) :: String.t()
-  def explain_code(code, language, opts \ []) do
+  def explain_code(code, language, opts \\ []) do
     variables = %{
       code: code,
       language: language,

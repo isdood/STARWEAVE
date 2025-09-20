@@ -14,10 +14,8 @@ defmodule StarweaveLlm.Memory.Supervisor do
   
   @impl true
   def init(_init_arg) do
-    children = [
-      {StarweaveCore.Intelligence.WorkingMemory, []}
-    ]
-    
-    Supervisor.init(children, strategy: :one_for_one)
+    # WorkingMemory is already started by starweave_core
+    # No need to start it again here
+    Supervisor.init([], strategy: :one_for_one)
   end
 end

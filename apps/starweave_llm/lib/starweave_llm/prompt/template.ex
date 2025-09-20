@@ -76,14 +76,30 @@ defmodule StarweaveLlm.Prompt.Template do
   end
   
   @doc """
-  Loads and renders a template by name, handling versioning.
+  Renders a template by name with the given variables.
+  
+  ## Examples
+      iex> render_template(:system, %{})
+      {:ok, "System prompt..."}
   """
-  @spec render_template(template_name(), variables(), template_version() | nil) :: 
+  @spec render_template(template_name(), variables()) :: 
           {:ok, String.t()} | {:error, String.t()}
-  def render_template(name, variables, version \\ "default") do
-    case load_template(name, version) do
-      {:ok, template} -> render(template, variables)
-      error -> error
+  def render_template(name, variables) when is_map(variables) do
+    render_template(name, :default, variables)
+  end
+  
+  @doc """
+  Renders a template by name and version with the given variables.
+  
+  ## Examples
+      iex> render_template(:system, %{}, "v1")
+      {:ok, "System prompt v1..."}
+  """
+  @spec render_template(template_name(), variables(), template_version()) :: 
+          {:ok, String.t()} | {:error, String.t()}
+  def render_template(name, variables, version) when is_map(variables) and is_binary(version) do
+    with {:ok, template} <- load_template(name, version) do
+      render(template, variables)
     end
   end
   
@@ -185,8 +201,23 @@ defmodule StarweaveLlm.Prompt.Template do
   """
   @spec render_template(template_name(), template_namespace(), variables()) :: 
           {:ok, String.t()} | {:error, String.t()}
-  def render_template(name, namespace, variables \\ %{}) do
+  def render_template(name, namespace, variables) when (is_atom(namespace) or is_binary(namespace)) and is_map(variables) do
     with {:ok, template} <- load_template(name, namespace) do
+      render(template, variables)
+    end
+  end
+  
+  @doc """
+  Renders a template by name with the given variables using default namespace.
+  
+  ## Examples
+      iex> render_template(:system, %{})
+      {:ok, "System prompt..."}
+  """
+  @spec render_template(template_name(), variables()) :: 
+          {:ok, String.t()} | {:error, String.t()}
+  def render_template(name, variables) when is_map(variables) do
+    with {:ok, template} <- load_template(name, :default) do
       render(template, variables)
     end
   end

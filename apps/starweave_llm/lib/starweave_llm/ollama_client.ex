@@ -7,6 +7,7 @@ defmodule StarweaveLlm.OllamaClient do
   alias StarweaveLlm.ContextManager
   alias StarweaveLlm.MemoryIntegration
   alias StarweaveLlm.Prompt.Template
+  alias StarweaveLlm.Config
 
   @type opts :: [
     model: String.t(), 
@@ -19,11 +20,11 @@ defmodule StarweaveLlm.OllamaClient do
 
   @spec chat(String.t(), opts()) :: {:ok, String.t()} | {:error, term()}
   def chat(prompt, opts \\ []) when is_binary(prompt) do
-    host = Keyword.get(opts, :host, System.get_env("OLLAMA_HOST") || "http://localhost:11434")
-    model = Keyword.get(opts, :model, System.get_env("OLLAMA_MODEL") || "llama3.1")
-    template_name = Keyword.get(opts, :template, :default)
-    use_memory = Keyword.get(opts, :use_memory, true)
-    memory_limit = Keyword.get(opts, :memory_limit, 5)
+    host = Keyword.get(opts, :host, Config.default_host())
+    model = Keyword.get(opts, :model, Config.default_model())
+    template_name = Keyword.get(opts, :template, Config.default_template())
+    use_memory = Keyword.get(opts, :use_memory, Config.use_memory?())
+    memory_limit = Keyword.get(opts, :memory_limit, Config.default_memory_limit())
     context_manager = Keyword.get(opts, :context_manager)
 
     # Prepare context and memory

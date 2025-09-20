@@ -1,76 +1,48 @@
 # Test Issues Report
 
-This document outlines the current test failures and issues in the STARWEAVE project, organized by component.
+## Current Test Failures (as of 2025-09-19)
 
-## StarweaveLLM Tests
-
-### Ollama Integration Tests ✅
-- **File**: `test/starweave_llm/llm/ollama_integration_test.exs`
-- **Status**: All tests passing
-- **Resolution**:
-  - Fixed test setup to properly handle KnowledgeBase process
-  - Added mock embedder for testing
-  - Updated test assertions to match actual response format
-  - Ensured proper cleanup of test data
-
-### Query Service Tests
+### QueryService Tests
 - **File**: `test/starweave_llm/llm/query_service_test.exs`
-- **Status**: Passing
-- **Notes**: All tests are currently passing
-
-### BM25 Integration Tests
-- **File**: `test/starweave_llm/llm/query_service_bm25_test.exs`
-- **Status**: Multiple tests skipped
 - **Issues**:
-  - Hybrid search tests with BM25 are currently skipped
-  - BM25 search integration tests are not running
+  1. `test query/3 with conversation history includes conversation history in the prompt`
+     - Expected: List
+     - Actual: String
+     - Error: Expected truthy, got false
+     - Line: 325
 
-## StarweaveWeb Tests
+  2. `test hybrid search functionality combines semantic and keyword search results`
+     - Expected: List
+     - Actual: String
+     - Error: Expected truthy, got false
+     - Line: 178
 
-### GRPC Client Tests
-- **File**: `test/starweave_web/grpc/grpc_client_test.exs`
-- **Status**: Passing
-- **Notes**: All tests are currently passing
+  3. `test query/3 handles empty search results gracefully`
+     - Expected: List
+     - Actual: Empty string
+     - Error: Expected truthy, got false
+     - Line: 292
 
-### Pattern Client Tests
-- **File**: `test/starweave_web/grpc/pattern_client_test.exs`
-- **Status**: 1 test skipped
-- **Skipped Test**: "handles server unavailability gracefully"
+### Warnings
+1. **Redefining Modules**:
+   - `StarweaveWeb.ConnCase`
+   - `StarweaveWeb.GRPCCase`
 
-### Controller Tests
-- **Files**:
-  - `test/starweave_web/controllers/error_html_test.exs`
-  - `test/starweave_web/controllers/error_json_test.exs`
-  - `test/starweave_web/controllers/page_controller_test.exs`
-- **Status**: All passing
+2. **Unused Aliases**:
+   - `PatternResponse` in `test/grpc/pattern_client_unit_test.exs`
+   - `StatusResponse` in `test/grpc/pattern_client_unit_test.exs`
 
-## Known Issues and Warnings
+3. **Skipped Tests**:
+   - `test handles server unavailability gracefully` in `test/starweave_web/grpc/pattern_client_test.exs`
 
-### GRPC Deprecation Warning
-- **File**: `lib/starweave_web/grpc/starweave.pb.ex`
-- **Issue**: Deprecation warning about using map.field notation
-- **Impact**: Warning only, doesn't affect test results
-- **Recommended Action**: Update protobuf compiler in a future task
-
-### Unused Aliases
-- **File**: `test/grpc/pattern_client_unit_test.exs`
-- **Issue**: Unused aliases `PatternResponse` and `StatusResponse`
-- **Impact**: Warning only, doesn't affect test results
-- **Recommended Action**: Remove unused aliases
+## Notes
+- These issues appear unrelated to recent changes in the WorkingMemory implementation
+- The main issue seems to be with the return type of QueryService functions, where strings are being returned instead of lists
+- Some tests are being skipped and should be addressed in a future update
 
 ## Next Steps
-
-### High Priority
-1. Investigate and fix Ollama integration test failures
-2. Enable and fix skipped BM25 integration tests
-3. Implement the skipped server unavailability test for PatternClient
-
-### Medium Priority
-1. Update protobuf compiler to address GRPC deprecation warning
-2. Clean up unused aliases in test files
-3. Document any test environment requirements (e.g., Ollama service)
-
-### Low Priority
-1. Add more test coverage for error cases
-2. Document test setup requirements in README
-3. Consider adding CI/CD pipeline for automated testing
+1. Investigate QueryService return types
+2. Fix the return values to match test expectations
+3. Address the skipped tests
+4. Clean up unused aliases
+5. Resolve module redefinition warnings

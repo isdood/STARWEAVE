@@ -21,7 +21,7 @@ defmodule StarweaveLlm.LLM.ChatTemplates do
   Generates a prompt for querying the knowledge base.
   """
   @spec knowledge_base_query_prompt(String.t(), list()) :: String.t()
-  def knowledge_base_query_prompt(question, conversation_history \ []) do
+  def knowledge_base_query_prompt(question, conversation_history \\ []) do
     variables = %{
       question: question,
       conversation_history: Enum.map(conversation_history, &format_message/1)

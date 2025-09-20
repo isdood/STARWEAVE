@@ -4,9 +4,10 @@ defmodule StarweaveLlm.LLM.OllamaClient do
   """
   
   require Logger
+  alias StarweaveLlm.Config
   
-  @default_model "llama3.1"
-  @default_base_url "http://localhost:11434"
+  @default_model Config.default_model()
+  @default_base_url Config.default_host()
   
   @doc """
   Returns the base URL for the Ollama API.

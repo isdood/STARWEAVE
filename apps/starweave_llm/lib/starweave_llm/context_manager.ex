@@ -73,9 +73,7 @@ defmodule StarweaveLlm.ContextManager do
   @doc """
   Adds a message to the conversation history.
   """
-  @spec add_message(t(), String.t(), String.t(), list() | nil) :: t()
-  def add_message(context, role, content, sources \\ nil)
-  
+  @spec add_message(t(), atom(), String.t(), list() | nil) :: t()
   def add_message(context, role, content, sources \\ nil) do
     updated_context = 
       case role do

@@ -3,6 +3,8 @@ defmodule HTTPoisonMock do
   Mock implementation of HTTPoison for testing.
   """
   
+  alias StarweaveLlm.Config
+  
   @behaviour HTTPoison.Base
   
   @impl true
@@ -10,12 +12,13 @@ defmodule HTTPoisonMock do
     cond do
       # Handle the default case
       method == :post and url == "http://localhost:11434/api/generate" and 
-      body == "{\"model\":\"llama3.1\",\"prompt\":\"test prompt\",\"temperature\":0.7,\"max_tokens\":2048,\"stream\":false}" ->
+      body =~ ~s("model":"#{Config.default_model()}") and 
+      body =~ ~s("prompt":"test prompt") ->
         {:ok, %HTTPoison.Response{
           status_code: 200,
           body: """
           {
-            "model": "llama3.1",
+            "model": "#{Config.default_model()}",
             "created_at": "2023-05-12T23:08:45.000Z",
             "response": "This is a test response",
             "done": true

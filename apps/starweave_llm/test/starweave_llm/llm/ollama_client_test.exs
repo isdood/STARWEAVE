@@ -1,6 +1,8 @@
 defmodule StarweaveLlm.LLM.OllamaClientTest do
   use ExUnit.Case, async: false
   
+  alias StarweaveLlm.Config
+  
   # Setup Bypass for HTTP requests
   setup do
     bypass = Bypass.open()
@@ -22,13 +24,16 @@ defmodule StarweaveLlm.LLM.OllamaClientTest do
     test "sends a request to the Ollama API and returns the response", %{bypass: bypass} do
       Bypass.expect(bypass, "POST", "/api/generate", fn conn ->
         {:ok, body, conn} = Plug.Conn.read_body(conn)
+        decoded_body = Jason.decode!(body)
         assert %{
-          "model" => "llama3.1",
+          "model" => model,
           "prompt" => "test prompt",
           "temperature" => 0.7,
           "max_tokens" => 2048,
           "stream" => false
-        } = Jason.decode!(body)
+        } = decoded_body
+        
+        assert model == Config.default_model()
         
         json = Jason.encode!(%{
           "response" => "Test response"

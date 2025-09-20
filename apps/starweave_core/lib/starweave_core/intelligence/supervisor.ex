@@ -14,10 +14,23 @@ defmodule StarweaveCore.Intelligence.Supervisor do
   
   @impl true
   def init(_init_arg) do
-    children = [
+    # Determine which memory implementation to use based on configuration
+    use_distributed = Application.get_env(:starweave_core, :use_distributed_memory, false)
+    
+    memory_children = if use_distributed do
+      # Start distributed working memory
+      [
+        {StarweaveCore.Intelligence.DistributedWorkingMemory, []}
+      ]
+    else
+      # Start local working memory
+      [
+        {StarweaveCore.Intelligence.WorkingMemory, []}
+      ]
+    end
+    
+    children = memory_children ++ [
       # Core components
-      {StarweaveCore.Intelligence.WorkingMemory, []},
-      {StarweaveCore.Intelligence.DistributedWorkingMemory, []},
       {StarweaveCore.Intelligence.GoalManager, []},
       {StarweaveCore.Intelligence.ReasoningEngine, []},
       
