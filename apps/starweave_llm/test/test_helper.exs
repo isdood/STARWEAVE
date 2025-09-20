@@ -15,6 +15,9 @@ Application.put_env(:starweave_llm, :ollama_base_url, "http://localhost:11434/ap
 # Prevent application from starting during tests
 Application.put_env(:starweave_llm, :start_application, false)
 
+# Enable test mode for more predictable test behavior
+Application.put_env(:starweave_llm, :test_mode, true)
+
 # Configure mock KnowledgeBase
 Application.put_env(:starweave_llm, :knowledge_base, StarweaveLlm.SelfKnowledge.KnowledgeBase.Mock)
 

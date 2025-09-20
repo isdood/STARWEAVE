@@ -8,8 +8,6 @@ defmodule StarweaveLlm.LLM.QueryIntent do
   more relevant responses.
   """
   
-  alias StarweaveLlm.LLM.LLMBehaviour
-  
   @type intent :: :code_explanation | :documentation | :knowledge_base | :unknown
   @type intent_result :: {:ok, intent(), String.t()} | {:error, any()}
   
@@ -45,7 +43,6 @@ defmodule StarweaveLlm.LLM.QueryIntent do
   end
   
   # Simple pattern matching for common intents
-  @doc false
   @spec detect_simple_intent(String.t()) :: {:ok, intent()} | :unknown
   defp detect_simple_intent(query) when is_binary(query) do
     query = String.downcase(query)
@@ -107,7 +104,6 @@ defmodule StarweaveLlm.LLM.QueryIntent do
     end
   end
   
-  @doc false
   @spec build_intent_detection_prompt(String.t()) :: String.t()
   defp build_intent_detection_prompt(query) do
     """
@@ -120,7 +116,6 @@ defmodule StarweaveLlm.LLM.QueryIntent do
     """
   end
   
-  @doc false
   @spec parse_intent_response(String.t(), String.t()) :: intent_result()
   defp parse_intent_response(response, original_query) do
     response = String.trim(response)

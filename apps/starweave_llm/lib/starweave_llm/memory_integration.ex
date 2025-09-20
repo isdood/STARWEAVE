@@ -28,16 +28,36 @@ defmodule StarweaveLlm.MemoryIntegration do
   """
   @spec retrieve_memories(memory_query()) :: [memory_result()]
   def retrieve_memories(%{query: query, limit: limit, min_relevance: min_relevance}) do
-    # Get all patterns from the store
-    patterns = PatternStore.all()
+    # Get all patterns from the store and convert to Pattern structs
+    patterns = 
+      PatternStore.all()
+      |> Enum.map(fn 
+        {id, pattern_data} -> 
+          # Convert map to Pattern struct if it isn't already one
+          pattern = 
+            if Map.has_key?(pattern_data, :__struct__) and pattern_data.__struct__ == StarweaveCore.Pattern do
+              pattern_data
+            else
+              struct(StarweaveCore.Pattern, 
+                id: id,
+                data: pattern_data[:data] || pattern_data["data"],
+                metadata: pattern_data[:metadata] || pattern_data["metadata"] || %{},
+                energy: pattern_data[:energy] || pattern_data["energy"] || 1.0,
+                inserted_at: pattern_data[:inserted_at] || pattern_data["inserted_at"] || System.system_time(:millisecond)
+              )
+            end
+          {id, pattern}
+        pattern ->
+          pattern
+      end)
     
     # Score patterns based on relevance to query
     scored_patterns = 
       patterns
       |> Enum.map(fn 
-        {_id, pattern} = pattern_tuple -> 
+        {id, pattern} -> 
           score = calculate_relevance_score(pattern, query)
-          {pattern_tuple, score}
+          {{id, pattern}, score}
         pattern ->
           score = calculate_relevance_score(pattern, query)
           {pattern, score}
@@ -53,23 +73,23 @@ defmodule StarweaveLlm.MemoryIntegration do
           id: id || :crypto.strong_rand_bytes(16) |> Base.encode16(),
           content: extract_content(pattern),
           relevance_score: score,
-          timestamp: pattern[:inserted_at] || DateTime.utc_now(),
+          timestamp: pattern.inserted_at || DateTime.utc_now(),
           pattern_data: %{
-            data: pattern[:data],
-            metadata: pattern[:metadata] || %{},
-            energy: pattern[:energy] || 1.0
+            data: pattern.data,
+            metadata: pattern.metadata || %{},
+            energy: pattern.energy || 1.0
           }
         }
       {pattern, score} ->
         %{
-          id: pattern[:id] || :crypto.strong_rand_bytes(16) |> Base.encode16(),
+          id: pattern.id || :crypto.strong_rand_bytes(16) |> Base.encode16(),
           content: extract_content(pattern),
           relevance_score: score,
-          timestamp: pattern[:inserted_at] || DateTime.utc_now(),
+          timestamp: pattern.inserted_at || DateTime.utc_now(),
           pattern_data: %{
-            data: pattern[:data],
-            metadata: pattern[:metadata] || %{},
-            energy: pattern[:energy] || 1.0
+            data: pattern.data,
+            metadata: pattern.metadata || %{},
+            energy: pattern.energy || 1.0
           }
         }
     end)
@@ -149,19 +169,28 @@ defmodule StarweaveLlm.MemoryIntegration do
   @doc """
   Updates the energy/importance of a memory based on usage.
   """
-  @spec update_memory_energy(String.t(), float()) :: :ok | {:error, term()}
+  @spec update_memory_energy(String.t(), number()) :: :ok | {:error, term()}
   def update_memory_energy(memory_id, new_energy) do
     case PatternStore.get(memory_id) do
       {:ok, pattern_data} ->
-        updated_pattern = Map.put(pattern_data, :energy, new_energy)
-        PatternStore.put(memory_id, updated_pattern)
-        :ok
+        # Convert to struct if it's a map
+        pattern = 
+          if is_map(pattern_data) and not Map.has_key?(pattern_data, :__struct__) do
+            struct(StarweaveCore.Pattern, pattern_data)
+          else
+            pattern_data
+          end
         
+        # Update the energy
+        updated_pattern = %{pattern | energy: new_energy}
+        
+        # Save back to the store
+        PatternStore.put(memory_id, updated_pattern)
+      
       :not_found ->
         {:error, :memory_not_found}
-        
+      
       error ->
-        Logger.error("Error updating memory energy: #{inspect(error)}")
         error
     end
   end
@@ -170,12 +199,15 @@ defmodule StarweaveLlm.MemoryIntegration do
   Performs a comprehensive memory search with pattern matching.
   """
   @spec search_memories(String.t(), keyword()) :: [memory_result()]
-  def search_memories(query, opts \\ []) do
+  def search_memories(query, opts \\ []) when is_binary(query) and is_list(opts) do
     limit = Keyword.get(opts, :limit, 10)
     min_relevance = Keyword.get(opts, :min_relevance, 0.3)
     strategy = Keyword.get(opts, :strategy, :jaccard)
     
-    patterns = PatternStore.all()
+    # Get all patterns and extract the pattern data from the {:ok, pattern} tuples
+    patterns = 
+      PatternStore.all()
+      |> Enum.map(fn {_id, pattern} -> pattern end)
     
     # Use pattern matcher for more sophisticated matching
     relevant_patterns = 
@@ -194,16 +226,18 @@ defmodule StarweaveLlm.MemoryIntegration do
       |> Enum.sort_by(fn {_pattern, score} -> score end, :desc)
       |> Enum.take(limit)
     
-    Enum.map(relevant_patterns, fn {pattern, score} ->
+    # Convert patterns to memory results
+    relevant_patterns
+    |> Enum.map(fn {pattern, score} ->
       %{
         id: pattern.id,
         content: extract_content(pattern),
         relevance_score: score,
-        timestamp: pattern.inserted_at,
+        timestamp: pattern.inserted_at || DateTime.utc_now(),
         pattern_data: %{
           data: pattern.data,
-          metadata: pattern.metadata,
-          energy: pattern.energy
+          metadata: pattern.metadata || %{},
+          energy: pattern.energy || 1.0
         }
       }
     end)

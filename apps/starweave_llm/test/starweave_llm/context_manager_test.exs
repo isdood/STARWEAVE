@@ -29,7 +29,10 @@ defmodule StarweaveLlm.ContextManagerTest do
       updated_context = ContextManager.add_message(context, :user, message)
       
       assert length(updated_context.conversation.messages) == 1
-      assert hd(updated_context.conversation.messages) == {:user, message}
+      [message_tuple | _] = updated_context.conversation.messages
+      assert elem(message_tuple, 0) == :user
+      assert elem(message_tuple, 1) == message
+      assert is_binary(elem(message_tuple, 2))  # Check that message ID is present
       assert updated_context.token_count > 0
     end
 
@@ -56,7 +59,10 @@ defmodule StarweaveLlm.ContextManagerTest do
         |> ContextManager.add_message(:user, "Message 3")
       
       assert length(context.conversation.messages) == 2
-      assert hd(context.conversation.messages) == {:assistant, "Response 2"}
+      [message_tuple | _] = context.conversation.messages
+      assert elem(message_tuple, 0) == :assistant
+      assert elem(message_tuple, 1) == "Response 2"
+      assert is_binary(elem(message_tuple, 2))  # Check that message ID is present
     end
   end
 
@@ -97,12 +103,15 @@ defmodule StarweaveLlm.ContextManagerTest do
     test "returns compressed context when over token limit" do
       # Create a context with a very low token limit
       context = ContextManager.new(max_tokens: 10)
+      
+      context = context
         |> ContextManager.add_message(:user, "This is a very long message that should exceed the token limit")
       
       compressed = ContextManager.get_compressed_context(context)
       
-      assert compressed =~ "Conversation Summary"
-      assert compressed =~ "compressed due to length"
+      assert String.starts_with?(compressed, "Conversation Summary (compressed due to length):")
+      assert String.ends_with?(compressed, "[Previous conversation has been summarized for context window limits]")
+      assert String.length(compressed) < 200  # Should be much shorter than the original message
     end
   end
 

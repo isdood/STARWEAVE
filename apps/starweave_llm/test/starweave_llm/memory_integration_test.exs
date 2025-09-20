@@ -166,7 +166,7 @@ defmodule StarweaveLlm.MemoryIntegrationTest do
       assert {:ok, memory_id} = MemoryIntegration.store_memory(content, metadata)
       
       # Verify the pattern was stored
-      pattern = PatternStore.get(memory_id)
+      assert {:ok, pattern} = PatternStore.get(memory_id)
       assert pattern != nil
       assert pattern.data == content
       assert pattern.metadata.source == "test"
@@ -184,7 +184,7 @@ defmodule StarweaveLlm.MemoryIntegrationTest do
       assert :ok = MemoryIntegration.update_memory_energy(memory_id, 2.5)
       
       # Verify the update
-      pattern = PatternStore.get(memory_id)
+      {:ok, pattern} = PatternStore.get(memory_id)
       assert pattern.energy == 2.5
     end
 

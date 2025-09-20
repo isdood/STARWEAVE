@@ -32,10 +32,14 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   
   @doc """
   Starts the WorkingMemory GenServer.
+  
+  ## Options
+    - `:dets_dir` - Directory to store DETS files (default: "priv/data")
+    - `:dets_file` - DETS filename (default: "working_memory.dets")
   """
-  @spec start_link(any()) :: GenServer.on_start()
-  def start_link(_opts \\ []) do
-    GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
+  @spec start_link(keyword()) :: GenServer.on_start()
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @doc """
@@ -118,84 +122,151 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
   # Server Callbacks
   
   @impl true
-  def init(_opts) do
-    # Initialize DETS table
-    :ok = DetsWorkingMemory.init()
+  def init(opts) do
+    # Store DETS configuration in state
+    state = %{
+      dets_dir: Keyword.get(opts, :dets_dir, "priv/data"),
+      dets_file: Keyword.get(opts, :dets_file, "working_memory.dets")
+    }
     
-    # Schedule cleanup of expired entries
-    schedule_cleanup()
-    
-    {:ok, %{}}
+    # Initialize DETS storage
+    case DetsWorkingMemory.init() do
+      :ok ->
+        Logger.info("WorkingMemory initialized successfully")
+        # Schedule cleanup of expired entries every hour
+        schedule_cleanup()
+        {:ok, state}
+      
+      {:error, reason} ->
+        Logger.error("Failed to initialize WorkingMemory: #{inspect(reason)}")
+        # Still start the server but in a degraded state
+        {:ok, Map.put(state, :degraded, true)}
+    end
   end
   
   @impl true
+  def handle_cast({:store, _context, _key, _value, _ttl, _importance}, %{degraded: true} = state) do
+    # In degraded mode, just log the error
+    Logger.error("WorkingMemory is in degraded mode, cannot store data")
+    {:noreply, state}
+  end
+  
   def handle_cast({:store, context, key, value, ttl, importance}, state) do
     case DetsWorkingMemory.store(context, key, value, ttl, importance) do
-      :ok -> 
+      :ok ->
         Logger.debug("Stored in working memory: #{inspect(context)}/#{inspect(key)}")
-      error -> 
-        Logger.error("Failed to store in working memory: #{inspect(error)}")
+      
+      {:error, reason} ->
+        Logger.error("Failed to store in working memory: #{inspect(reason)}")
     end
+    
     {:noreply, state}
   end
   
   @impl true
+  def handle_cast({:forget, _context, _key}, %{degraded: true} = state) do
+    # In degraded mode, do nothing
+    {:noreply, state}
+  end
+  
   def handle_cast({:forget, context, key}, state) do
     case DetsWorkingMemory.delete(context, key) do
-      :ok -> 
-        Logger.debug("Forgot memory: #{inspect({context, key})}")
-      error -> 
-        Logger.error("Failed to forget memory: #{inspect(error)}")
+      :ok ->
+        Logger.debug("Forgot key: #{inspect(key)} from context: #{inspect(context)}")
+      
+      {:error, reason} ->
+        Logger.error("Error forgetting key #{inspect(key)} from context #{inspect(context)}: #{inspect(reason)}")
     end
+    
     {:noreply, state}
   end
   
   @impl true
+  def handle_cast({:clear_context, _context}, %{degraded: true} = state) do
+    # In degraded mode, do nothing
+    {:noreply, state}
+  end
+  
   def handle_cast({:clear_context, context}, state) do
-    case DetsWorkingMemory.get_context(context) do
-      {:ok, entries} ->
-        count = length(entries)
-        Enum.each(entries, fn %{key: key} -> DetsWorkingMemory.delete(context, key) end)
-        Logger.debug("Cleared #{count} entries from context: #{inspect(context)}")
-      error ->
-        Logger.error("Failed to clear context: #{inspect(error)}")
+    case DetsWorkingMemory.clear_context(context) do
+      :ok ->
+        Logger.info("Cleared context: #{inspect(context)}")
+      
+      {:error, reason} ->
+        Logger.error("Error clearing context #{inspect(context)}: #{inspect(reason)}")
+        
+        # Fallback to manual clearing if the context clear failed
+        case DetsWorkingMemory.get_context(context) do
+          {:ok, entries} ->
+            count = length(entries)
+            Enum.each(entries, fn {key, _value, _metadata} -> 
+              DetsWorkingMemory.delete(context, key) 
+            end)
+            Logger.info("Manually cleared #{count} entries from context: #{inspect(context)}")
+          
+          _ ->
+            :ok
+        end
     end
+    
     {:noreply, state}
   end
   
   @impl true
+  def handle_call({:retrieve, _context, _key}, _from, %{degraded: true} = state) do
+    # In degraded mode, return not found
+    {:reply, :not_found, state}
+  end
+  
   def handle_call({:retrieve, context, key}, _from, state) do
     result = case DetsWorkingMemory.retrieve(context, key) do
-      {:ok, value} -> {:ok, value}
-      :not_found -> :not_found
-      error -> 
-        Logger.error("Failed to retrieve from working memory: #{inspect(error)}")
+      {:ok, value} -> 
+        {:ok, value}
+        
+      :not_found -> 
+        :not_found
+        
+      {:error, reason} ->
+        Logger.error("Error retrieving from working memory: #{inspect(reason)}")
+        :not_found
+        
+      other ->
+        Logger.error("Unexpected result from DETS retrieve: #{inspect(other)}")
         :not_found
     end
+    
     {:reply, result, state}
   end
   
   @impl true
+  def handle_call({:get_context, _context}, _from, %{degraded: true} = state) do
+    # In degraded mode, return empty list
+    {:reply, [], state}
+  end
+  
   def handle_call({:get_context, context}, _from, state) do
-    result = 
-      case DetsWorkingMemory.get_context(context) do
-        {:ok, entries} -> 
-          entries
-          |> Enum.map(fn %{key: k, value: v, metadata: m} -> {k, v, m} end)
-          |> Enum.sort_by(
-            fn {_k, _v, %{importance: i, inserted_at: t}} -> 
-              {i, -DateTime.to_unix(DateTime.from_unix!(div(t, 1000)))}
-            end,
-            :desc
-          )
-        error ->
-          Logger.error("Error getting context from working memory: #{inspect(error)}")
-          []
-      end
-    {:reply, result, state}
+    entries = case DetsWorkingMemory.get_context(context) do
+      {:error, reason} ->
+        Logger.error("Error getting context from working memory: #{inspect(reason)}")
+        []
+      
+      result when is_list(result) ->
+        result
+        
+      other ->
+        Logger.error("Unexpected result from DETS get_context: #{inspect(other)}")
+        []
+    end
+    
+    {:reply, entries, state}
   end
   
   @impl true
+  def handle_call({:search, _query, _threshold, _limit}, _from, %{degraded: true} = state) do
+    # In degraded mode, return empty list
+    {:reply, [], state}
+  end
+  
   def handle_call({:search, query, _threshold, limit}, _from, state) do
     result = 
       case DetsWorkingMemory.search(query) do
@@ -203,8 +274,13 @@ defmodule StarweaveCore.Intelligence.WorkingMemory do
           results
           |> Enum.take(limit)
           |> Enum.map(fn {k, v, %{importance: imp}} -> {k, v, imp} end)
-        error ->
-          Logger.error("Error searching working memory: #{inspect(error)}")
+        
+        {:error, reason} ->
+          Logger.error("Error searching working memory: #{inspect(reason)}")
+          []
+          
+        other ->
+          Logger.error("Unexpected result from DETS search: #{inspect(other)}")
           []
       end
     {:reply, result, state}

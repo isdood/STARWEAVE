@@ -104,12 +104,26 @@ defmodule StarweaveLlm.Prompt.Template do
   end
   
   @doc """
-  Loads a template by name and version.
-  Templates are stored in the priv/templates directory.
+  Loads a template by name and version or namespace.
+  
+  When called with a name and version (string), loads the template from the appropriate
+  directory based on the template type.
+  
+  When called with a name and namespace (atom or string), loads the template from the
+  namespaced directory (e.g., priv/templates/chat/system.md).
+  
+  ## Examples
+      # With version
+      iex> load_template("system", "1.0.0")
+      {:ok, "..."}
+      
+      # With namespace
+      iex> load_template(:system, :chat)
+      {:ok, "..."}
   """
-  @spec load_template(template_name(), template_version()) :: 
+  @spec load_template(template_name(), template_version() | template_namespace()) :: 
           {:ok, String.t()} | {:error, String.t()}
-  def load_template(name, version) do
+  def load_template(name, version) when is_binary(version) do
     # Try the chat directory first for chat templates (only for :default, :pattern_analysis, :memory_retrieval)
     if name in [:default, :pattern_analysis, :memory_retrieval] do
       template_path = 
@@ -148,23 +162,6 @@ defmodule StarweaveLlm.Prompt.Template do
           {:error, "Failed to load template #{name} v#{version}: #{:file.format_error(reason)}"}
       end
     end
-  end
-  
-  @doc """
-  Loads a template by name and namespace.
-  
-  ## Examples
-      iex> load_template(:system, :chat)
-      {:ok, "You are STARWEAVE..."}
-  """
-  @spec load_template(template_name(), template_namespace()) :: 
-          {:ok, String.t()} | {:error, String.t()}
-  def load_template(name, namespace) when is_atom(name) do
-    load_template(Atom.to_string(name), namespace)
-  end
-  
-  def load_template(name, namespace) when is_binary(name) and is_atom(namespace) do
-    load_template(name, Atom.to_string(namespace))
   end
   
   def load_template(name, namespace) when is_binary(name) and is_binary(namespace) do

@@ -118,6 +118,7 @@ defmodule StarweaveCore.Distributed.TaskDistributor do
       node_load: %{},
       task_callers: %{},
       task_monitors: %{},
+      ref_to_id: %{},
       task_timeout: 30_000,
       name: nil,
       task_supervisor: nil
@@ -173,9 +174,10 @@ defmodule StarweaveCore.Distributed.TaskDistributor do
   end
 
   @impl true
-  def handle_call({:submit_task, input, fun, _opts}, {from_pid, _ref} = _from, %State{task_supervisor: task_supervisor, tasks: tasks, task_monitors: task_monitors} = state) do
+  def handle_call({:submit_task, input, fun, opts}, {from_pid, _ref} = from, %State{task_supervisor: task_supervisor, tasks: tasks} = state) do
     task_id = System.unique_integer([:positive, :monotonic])
     task_ref = make_ref()
+    return_ref = Keyword.get(opts, :return_ref, false)
     
     # Start the task under the supervisor
     task = Task.Supervisor.async_nolink(task_supervisor, fn ->
@@ -183,33 +185,52 @@ defmodule StarweaveCore.Distributed.TaskDistributor do
         # Execute the task function
         result = fun.(input)
         # Send the result back to the caller
-        send(from_pid, {task_ref, {:ok, result}})
+        send(self(), {:task_completed, task_ref, {:ok, result}})
         result
       catch
         kind, reason ->
           stacktrace = __STACKTRACE__
           error = {kind, reason, stacktrace}
-          send(from_pid, {task_ref, {:error, error}})
+          send(self(), {:task_completed, task_ref, {:error, error}})
           :erlang.raise(kind, reason, stacktrace)
       end
     end)
+    
+    # Monitor the task
+    monitor_ref = Process.monitor(task.pid)
     
     # Store task information
     task_info = %{
       id: task_id,
       ref: task.ref,
+      monitor_ref: monitor_ref,
       pid: task.pid,
       start_time: System.monotonic_time(),
       caller: from_pid,
-      task_ref: task_ref
+      task_ref: task_ref,
+      status: :pending,
+      return_ref: return_ref,
+      from: if(return_ref, do: nil, else: from)
     }
     
     # Update the state with the new task
     new_tasks = Map.put(tasks, task_id, task_info)
-    new_monitors = Map.put(task_monitors, task.ref, task_id)
+    new_monitors = Map.put(state.task_monitors, monitor_ref, task_id)
+    new_refs = Map.put(state.ref_to_id || %{}, task_ref, task_id)
     
     # Return the task reference to the caller
-    {:reply, {:ok, task_ref}, %{state | tasks: new_tasks, task_monitors: new_monitors}}
+    new_state = %{state | 
+      tasks: new_tasks, 
+      task_monitors: new_monitors,
+      ref_to_id: new_refs
+    }
+    
+    if return_ref do
+      {:reply, {:ok, task_ref}, new_state}
+    else
+      # For synchronous calls, we'll reply when the task completes
+      {:noreply, new_state}
+    end
   end
 
   @impl true
@@ -224,122 +245,147 @@ defmodule StarweaveCore.Distributed.TaskDistributor do
   end
 
   @impl true
-  def handle_call({:task_status, task_ref}, _from, %State{tasks: tasks} = state) do
-    case Map.get(tasks, task_ref) do
+  def handle_call({:task_status, task_ref}, _from, %State{ref_to_id: ref_to_id, tasks: tasks} = state) do
+    # First try to find by task_ref if it's a reference
+    task_id = if is_reference(task_ref), do: Map.get(ref_to_id, task_ref, task_ref), else: task_ref
+    
+    case Map.get(tasks, task_id) do
       nil -> 
         {:reply, {:error, :not_found}, state}
-      %{status: :completed} -> 
-        {:reply, {:ok, :completed}, state}
+      %{status: :completed, task_ref: ref} -> 
+        {:reply, {:ok, {:completed, ref}}, state}
       %{status: :pending} -> 
         {:reply, {:ok, :pending}, state}
-      %{status: :failed} -> 
-        {:reply, {:ok, :failed}, state}
-      %{status: {:completed, _result}} -> 
-        {:reply, {:ok, :completed}, state}
-      %{status: :done} -> 
-        {:reply, {:ok, :completed}, state}
+      %{status: :failed, task_ref: ref} -> 
+        {:reply, {:ok, {:failed, ref}}, state}
+      %{status: {:completed, _result}, task_ref: ref} -> 
+        {:reply, {:ok, {:completed, ref}}, state}
+      %{status: :done, task_ref: ref} -> 
+        {:reply, {:ok, {:completed, ref}}, state}
       _ -> 
         {:reply, {:error, :not_found}, state}
     end
   end
 
   @impl true
-  def handle_info(msg, %State{tasks: tasks} = state) do
-    cond do
-      # Handle task completion via direct message
-      is_tuple(msg) and tuple_size(msg) == 2 and is_reference(elem(msg, 1)) ->
-        {task_monitor_ref, result} = msg
-        
-        # Find the task by monitor ref
-        case Enum.find(tasks, fn {_ref, task} -> Map.get(task, :task_monitor_ref) == task_monitor_ref end) do
-          {task_ref, task} ->
-            # Get the result and update the task status
-            {status, reply} = case result do
-              {:completed, _res} -> 
-                {:completed, {:ok, :completed}}
-              {:error, {_kind, _reason, _stack} = error} -> 
-                {:failed, {:error, error}}
-              _ -> 
-                {:completed, {:ok, :completed}}
-            end
-            
-            # Update the task status
-            updated_task = %{task | status: status}
-            new_tasks = Map.put(tasks, task_ref, updated_task)
-            
-            # Reply to the caller if we have a from and not using return_ref
-            if task.from do
-              if task.return_ref do
-                GenServer.reply(task.from, {:ok, :completed})
-              else
-                GenServer.reply(task.from, reply)
-              end
-            end
-            
-            # Update the state with the new task status
-            new_state = %{state | tasks: new_tasks}
-            {:noreply, new_state}
-            
-          nil ->
-            {:noreply, state}
+  def handle_info({:task_completed, task_ref, result}, %State{tasks: tasks} = state) do
+    case find_task_by_ref(tasks, task_ref) do
+      {task_id, task} ->
+        # Update task status based on result
+        {status, reply} = case result do
+          {:ok, _} -> 
+            {:completed, result}
+          {:error, _} -> 
+            {:failed, result}
         end
         
-      # Handle task completion via DOWN message (from task monitoring)
-      is_tuple(msg) and tuple_size(msg) == 5 and elem(msg, 0) == :DOWN ->
-        {:DOWN, ref, :process, _pid, reason} = msg
-        case find_task_by_monitor_ref(tasks, ref) do
-          {task_ref, %{from: from, return_ref: false}} ->
-            # Task failed or exited
-            new_tasks = Map.put(tasks, task_ref, %{status: :failed})
-            GenServer.reply(from, {:error, reason})
-            {:noreply, %{state | tasks: new_tasks}}
-            
-          {task_ref, %{from: _from, return_ref: true}} ->
-            # Task failed or exited, but we already replied with the task ref
-            new_tasks = Map.put(tasks, task_ref, %{status: :failed})
-            {:noreply, %{state | tasks: new_tasks}}
-            
-          nil ->
-            {:noreply, state}
+        # Update the task status
+        updated_task = %{task | status: status}
+        new_tasks = Map.put(tasks, task_id, updated_task)
+        
+        # Reply to the caller if this was a synchronous call
+        if task.from do
+          GenServer.reply(task.from, reply)
         end
         
-      # Handle process exit messages
-      is_tuple(msg) and tuple_size(msg) == 3 and elem(msg, 0) == :EXIT ->
-        exit_reason = elem(msg, 2)
-        # Log non-normal exits
-        if exit_reason != :normal do
-          Logger.error("Task distributor received exit: #{inspect(exit_reason)}")
-        end
-        {:noreply, state}
+        # Clean up monitoring
+        Process.demonitor(task.monitor_ref, [:flush])
         
-      # Handle node discovery events
-      is_tuple(msg) and tuple_size(msg) == 3 and elem(msg, 0) == :nodeup ->
-        {:nodeup, node, _info} = msg
-        Logger.info("Node joined cluster: #{inspect(node)}")
-        %{nodes: nodes, node_load: node_load} = state
-        new_nodes = [node | Enum.reject(nodes, &(&1 == node))]
-        new_load = Map.put_new(node_load, node, 0)
-        {:noreply, %{state | nodes: new_nodes, node_load: new_load}}
+        # Update state
+        new_monitors = Map.delete(state.task_monitors, task.monitor_ref)
+        new_refs = Map.delete(state.ref_to_id || %{}, task_ref)
         
-      is_tuple(msg) and tuple_size(msg) == 3 and elem(msg, 0) == :nodedown ->
-        {:nodedown, node, _info} = msg
-        Logger.warning("Node left cluster: #{inspect(node)}")
-        %{nodes: nodes, node_load: node_load} = state
-        new_nodes = List.delete(nodes, node)
-        new_load = Map.delete(node_load, node)
-        {:noreply, %{state | nodes: new_nodes, node_load: new_load}}
+        {:noreply, %{state | 
+          tasks: new_tasks, 
+          task_monitors: new_monitors,
+          ref_to_id: new_refs
+        }}
         
-      # Handle other messages
-      true ->
+      nil ->
         {:noreply, state}
     end
+  end
+  
+  @impl true
+  def handle_info({:DOWN, ref, :process, _pid, reason}, %State{task_monitors: monitors, tasks: tasks} = state) do
+    case Map.get(monitors, ref) do
+      nil ->
+        {:noreply, state}
+        
+      task_id ->
+        case Map.get(tasks, task_id) do
+          nil ->
+            # Task not found, clean up
+            new_monitors = Map.delete(monitors, ref)
+            {:noreply, %{state | task_monitors: new_monitors}}
+            
+          task ->
+            # Task failed or exited
+            new_tasks = Map.put(tasks, task_id, %{task | status: :failed})
+            
+            # Reply to the caller if this was a synchronous call
+            if task.from do
+              GenServer.reply(task.from, {:error, reason})
+            end
+            
+            # Clean up
+            new_monitors = Map.delete(monitors, ref)
+            new_refs = if task.task_ref, do: Map.delete(state.ref_to_id || %{}, task.task_ref), else: state.ref_to_id
+            
+            {:noreply, %{state | 
+              tasks: new_tasks,
+              task_monitors: new_monitors,
+              ref_to_id: new_refs
+            }}
+        end
+    end
+  end
+  
+  @impl true
+  def handle_info({:EXIT, _pid, reason}, state) do
+    # Log non-normal exits
+    if reason != :normal do
+      Logger.error("Task process exited with reason: #{inspect(reason)}")
+    end
+    {:noreply, state}
+  end
+  
+  @impl true
+  def handle_info({:nodeup, node, _info}, %State{nodes: nodes, node_load: node_load} = state) do
+    Logger.info("Node joined cluster: #{inspect(node)}")
+    new_nodes = [node | Enum.reject(nodes, &(&1 == node))]
+    new_load = Map.put_new(node_load, node, 0)
+    {:noreply, %{state | nodes: new_nodes, node_load: new_load}}
+  end
+  
+  @impl true
+  def handle_info({:nodedown, node, _info}, %State{nodes: nodes, node_load: node_load} = state) do
+    Logger.warning("Node left cluster: #{inspect(node)}")
+    new_nodes = List.delete(nodes, node)
+    new_load = Map.delete(node_load, node)
+    {:noreply, %{state | nodes: new_nodes, node_load: new_load}}
+  end
+  
+  @impl true
+  def handle_info(_msg, state) do
+    # Ignore other messages
+    {:noreply, state}
   end
 
   # Private functions
   
   # Helper to find a task by its monitor reference
-  defp find_task_by_monitor_ref(tasks, monitor_ref) do
-    Enum.find(tasks, fn {_task_ref, task} -> Map.get(task, :monitor_ref) == monitor_ref end)
+  defp find_task_by_ref(tasks, task_ref) when is_reference(task_ref) do
+    Enum.find(tasks, fn {_id, task} ->
+      task.task_ref == task_ref
+    end) || {nil, nil}
+  end
+  
+  defp find_task_by_ref(tasks, task_id) when is_integer(task_id) do
+    case Map.get(tasks, task_id) do
+      nil -> {nil, nil}
+      task -> {task_id, task}
+    end
   end
   
   # Node selection will be implemented in a future iteration

@@ -46,3 +46,14 @@
 3. Address the skipped tests
 4. Clean up unused aliases
 5. Resolve module redefinition warnings
+
+## Next Steps
+
+## Fix Task Distributor:
+- Address process registration issues
+- Ensure proper task distribution and status tracking
+
+## Update Tests:
+- Make tests more resilient to timing issues
+- Add proper cleanup between tests
+- Ensure proper test isolation

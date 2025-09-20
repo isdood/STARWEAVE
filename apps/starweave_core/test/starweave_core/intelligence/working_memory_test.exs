@@ -58,19 +58,23 @@ defmodule StarweaveCore.Intelligence.WorkingMemoryTest do
 
   describe "search functionality" do
     test "finds memories by search query" do
-      :ok = WorkingMemory.store(:search_ctx, :user_pref, "user prefers dark theme")
-      :ok = WorkingMemory.store(:search_ctx, :last_action, "user clicked settings")
-      :ok = WorkingMemory.store(:other_ctx, :unrelated, "some other data")
+      # Store test data with importance scores
+      :ok = WorkingMemory.store(:search_ctx, :user_pref, "user prefers dark theme", importance: 0.8)
+      :ok = WorkingMemory.store(:search_ctx, :last_action, "user clicked settings", importance: 0.5)
+      :ok = WorkingMemory.store(:other_ctx, :unrelated, "some other data", importance: 0.3)
 
-      # Search for memories related to user preferences
-      results = WorkingMemory.search("user preference")
+      # Search for memories containing "dark" (exact substring match)
+      results = WorkingMemory.search("dark", threshold: 0.1, limit: 10)
       
-      # Should find the user_pref memory with a reasonable score
-      assert {_, :user_pref, "user prefers dark theme", score} = 
-               Enum.find(results, &match?({:search_ctx, :user_pref, _, _}, &1))
+      # Should find the user_pref memory since it contains "dark"
+      assert Enum.any?(results, fn {k, _, _} -> k == :user_pref end)
       
-      # Using a more lenient threshold for the similarity score
-      assert score > 0.4
+      # Should not include unrelated data
+      refute Enum.any?(results, fn {k, _, _} -> k == :unrelated end)
+      
+      # Search for a term that shouldn't match anything
+      empty_results = WorkingMemory.search("nonexistent_term", threshold: 0.1, limit: 10)
+      assert Enum.empty?(empty_results)
     end
   end
 

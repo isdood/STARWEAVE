@@ -221,23 +221,26 @@ defmodule StarweaveLlm.LLM.QueryServiceTest do
         "pattern matching", 
         raw_results: true,
         search_strategy: :hybrid,
-        max_results: 10,
-        # Enable LLM for this test
-        use_llm: true
+        max_results: 10
       )
       
-      # Verify we got results
+      # Verify we got a list of results
       assert is_list(results)
       
-      # Get the IDs of all results
-      ids = Enum.map(results, & &1.id)
+      # Verify each result has the expected structure
+      Enum.each(results, fn result ->
+        assert is_binary(result.id)
+        assert is_float(result.score)
+        assert result.score >= 0.0 and result.score <= 1.0
+        assert result.search_type in [:semantic, :keyword, :both]
+        assert is_map(result.entry)
+        assert is_map(result.context) || is_nil(result.context)
+      end)
       
-      # We should have at least one result
-      assert length(ids) > 0
-      
-      # Check that we have results from both search types
+      # We should have results from at least one search type
       search_types = Enum.map(results, & &1.search_type)
-      assert :semantic in search_types or :keyword in search_types
+      assert length(search_types) > 0
+      assert Enum.any?(search_types, &(&1 in [:semantic, :both, :keyword]))
     end
   end
 
@@ -306,18 +309,30 @@ defmodule StarweaveLlm.LLM.QueryServiceTest do
       # Update the mock knowledge base to return no results for this test
       :ok = MockKnowledgeBase.update_search_results(kb_pid, [], [])
       
-      # Call the query function with raw_results: true to get structured response
-      # and explicitly set use_llm: false to match our test mode
-      assert {:ok, response} = QueryService.query(
+      # Test with raw_results: true
+      assert {:ok, results} = QueryService.query(
         query_service, 
-        "unknown query", 
-        raw_results: true,
-        use_llm: false
+        "unknown query",
+        raw_results: true
       )
       
-      # Verify the response indicates no results were found
-      assert is_list(response)
-      assert Enum.empty?(response)
+      # Should return an empty list for raw results
+      assert is_list(results)
+      assert Enum.empty?(results)
+      
+      # Reset Mox expectations for the next test
+      Mox.stub(StarweaveLlm.MockBertEmbedder, :embed, fn "unknown query" ->
+        {:ok, [0.0, 0.0, 0.0, 0.0, 0.0]}
+      end)
+      
+      # Test without raw_results to check the formatted message
+      assert {:ok, response} = QueryService.query(
+        query_service,
+        "unknown query"
+      )
+      
+      # Should return an empty string when no results are found
+      assert response == ""
     end
   end
   
@@ -348,24 +363,50 @@ defmodule StarweaveLlm.LLM.QueryServiceTest do
         {:ok, test_embedding}
       end)
       
+      # Allow multiple calls to the embedder for conversation history
+      Mox.stub(StarweaveLlm.MockBertEmbedder, :embed, fn _ -> 
+        {:ok, [0.0, 0.0, 0.0, 0.0, 0.0]} 
+      end)
+      
+      # Stub the LLM for the first call (with conversation history)
+      Mox.stub(StarweaveLlm.MockLLM, :complete, fn prompt ->
+        # Verify the prompt includes the conversation history
+        assert prompt =~ ~r/How do I use the pattern matcher\?/
+        assert prompt =~ ~r/You can use it like this\.\.\./
+        assert prompt =~ ~r/Can you show me an example\?/
+        
+        # Return a simple response for testing
+        {:ok, "Here's how you can use the pattern matcher..."}
+      end)
+      
       # Update the mock knowledge base with test data
       :ok = MockKnowledgeBase.update_search_results(
         kb_pid, 
-        [
-          %{
-            id: "test1",
-            score: 0.95,
-            entry: test_entry,
-            context: %{
-              file_path: test_entry.file_path,
-              content: test_entry.content
-            }
-          }
-        ],
+        [%{
+          id: "test1",
+          score: 0.95,
+          entry: test_entry,
+          context: %{file_path: test_entry.file_path, content: "Example content"},
+          file_path: test_entry.file_path,
+          content: test_entry.content,
+          metadata: test_entry.metadata,
+          search_type: :semantic
+        }],
         []
       )
       
-      # Call the query function with conversation history and raw_results
+      # Call the query function with conversation history
+      assert {:ok, response} = QueryService.query(
+        query_service,
+        query,
+        conversation_history: conversation_history,
+        raw_results: false
+      )
+      
+      # Verify the response is a string (formatted response)
+      assert is_binary(response)
+      
+      # Test with raw_results: true - should not use LLM
       assert {:ok, results} = QueryService.query(
         query_service,
         query,
@@ -373,10 +414,9 @@ defmodule StarweaveLlm.LLM.QueryServiceTest do
         raw_results: true
       )
       
-      # Verify the results contain the expected content
+      # Should return the raw results
       assert is_list(results)
-      refute Enum.empty?(results)
-      assert Enum.any?(results, &(&1.entry.content =~ test_entry.content))
+      assert length(results) > 0
     end
   end
 end

@@ -53,8 +53,8 @@ defmodule StarweaveLlm.Context.PersistentContext do
   """
   @spec clear_context(String.t()) :: :ok | {:error, any()}
   def clear_context(user_id) when is_binary(user_id) do
-    with :ok <- WorkingMemory.clear_context(@context_key, user_id),
-         :ok <- WorkingMemory.clear_context(@sources_key, user_id) do
+    with :ok <- WorkingMemory.clear_context(@context_key),
+         :ok <- WorkingMemory.clear_context(@sources_key) do
       :ok
     end
   end
@@ -62,24 +62,24 @@ defmodule StarweaveLlm.Context.PersistentContext do
   # Private functions
   
   defp save_conversation(conversation, user_id) do
-    WorkingMemory.put(@context_key, user_id, conversation)
+    WorkingMemory.store(@context_key, user_id, conversation)
   end
   
   defp load_conversation(user_id) do
-    case WorkingMemory.get(@context_key, user_id) do
-      {:ok, nil} -> {:ok, Conversation.new()}
+    case WorkingMemory.retrieve(@context_key, user_id) do
+      :not_found -> {:ok, Conversation.new()}
       {:ok, conversation} -> {:ok, conversation}
       error -> error
     end
   end
   
   defp save_sources(sources, user_id) do
-    WorkingMemory.put(@sources_key, user_id, sources)
+    WorkingMemory.store(@sources_key, user_id, sources)
   end
   
   defp load_sources(user_id) do
-    case WorkingMemory.get(@sources_key, user_id) do
-      {:ok, nil} -> {:ok, %{}}
+    case WorkingMemory.retrieve(@sources_key, user_id) do
+      :not_found -> {:ok, %{}}
       {:ok, sources} -> {:ok, sources}
       error -> error
     end

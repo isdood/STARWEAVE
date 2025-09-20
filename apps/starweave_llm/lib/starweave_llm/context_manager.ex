@@ -213,7 +213,10 @@ defmodule StarweaveLlm.ContextManager do
       trimmed_messages = Enum.take(context.conversation.messages, -context.max_history)
       new_token_count = 
         trimmed_messages
-        |> Enum.map(fn {_role, content} -> estimate_tokens(content) end)
+        |> Enum.map(fn 
+          {_role, content, _id} -> estimate_tokens(content)  # Handle {role, content, id} format
+          {_role, content} -> estimate_tokens(content)        # Handle {role, content} format
+        end)
         |> Enum.sum()
       
       %{context | 
@@ -243,7 +246,10 @@ defmodule StarweaveLlm.ContextManager do
       |> Enum.chunk_every(3)
       |> Enum.map_join("\n", fn chunk ->
         chunk
-        |> Enum.map(fn {role, content} -> "#{role}: #{content}" end)
+        |> Enum.map(fn 
+          {role, content, _id} -> "#{role}: #{content}"  # Handle {role, content, id} format
+          {role, content} -> "#{role}: #{content}"        # Handle {role, content} format
+        end)
         |> Enum.join("\n")
       end)
     
