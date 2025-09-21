@@ -55,3 +55,7 @@ Mnesia.*
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Test logs
+test-logs.txt
+
