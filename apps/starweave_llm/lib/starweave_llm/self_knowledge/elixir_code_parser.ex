@@ -122,7 +122,7 @@ defmodule StarweaveLlm.SelfKnowledge.ElixirCodeParser do
     end
   end
 
-  # Extracts function definitions with their metadata
+  # Extracts function definitions with enhanced metadata
   defp extract_functions(source) do
     source
     |> String.split("\n")
@@ -132,28 +132,29 @@ defmodule StarweaveLlm.SelfKnowledge.ElixirCodeParser do
   
   defp process_function_line(line, {functions, current_doc, current_spec, line_num}) do
     cond do
-      # Function definition
+      # Function definition with enhanced parsing
       String.match?(line, ~r/^\s*def(p?)\s+([a-z_]\w*[?!]?)/) ->
         [_, visibility, func_name] = Regex.run(~r/^\s*def(p?)\s+([a-z_]\w*[?!]?)/, line)
         arity = count_args(line)
         
+        # Enhanced metadata extraction
+        # Extract parameter types from spec if available
+        param_types = extract_param_types(current_spec)
+        return_type = extract_return_type(current_spec)
+        
+        # Build the function info with all metadata
         func_info = %{
           name: func_name,
           arity: arity,
-          visibility: if(visibility == "p", do: :private, else: :public),
-          line: line_num
+          line: line_num,
+          param_types: param_types,
+          return_type: return_type
         }
         
-        func_info =
-          if current_spec do
-            Map.put(func_info, :spec, current_spec)
-          else
-            func_info
-          end
+        # Add the function to the list and reset the spec
+        {[func_info | functions], current_doc, nil, line_num + 1}
         
-        {[func_info | functions], nil, nil, line_num + 1}
-        
-      # Function spec
+      # Function spec with enhanced parsing
       String.match?(line, ~r/^\s*@spec\s+/) ->
         spec = String.trim(line)
         {functions, current_doc, spec, line_num + 1}
@@ -164,32 +165,29 @@ defmodule StarweaveLlm.SelfKnowledge.ElixirCodeParser do
     end
   end
 
-  # Extracts type definitions
+  # Enhanced type extraction with more metadata
   defp extract_types(source) do
     source
     |> String.split("\n")
     |> Enum.with_index(1)
     |> Enum.reduce([], fn {line, line_num}, acc ->
       cond do
-        # Type definition
+        # Type definition with enhanced metadata
         String.match?(line, ~r/^\s*@type(p)?\s+(\w+)\s*::/) ->
-          [_, _, type_name] = Regex.run(~r/^\s*@type(p)?\s+(\w+)\s*::/, line)
+          [_, visibility, type_name] = Regex.run(~r/^\s*@type(p)?\s+(\w+)\s*::/, line)
           [type_def] = Regex.run(~r/@type(?:p)?\s+\w+\s*::.*$/, line)
           
-          [
-            %{
-              name: String.to_atom(type_name),
-              definition: String.trim(type_def),
-              line: line_num
-            }
-            | acc
-          ]
-          
+          [%{
+            name: String.to_atom(type_name),
+            definition: String.trim(type_def),
+            line: line_num,
+            visibility: if(visibility == "p", do: :private, else: :public)
+          } | acc]
+        
         true ->
           acc
       end
     end)
-    |> Enum.reverse()
   end
 
   # Extracts module attributes
@@ -224,6 +222,46 @@ defmodule StarweaveLlm.SelfKnowledge.ElixirCodeParser do
       modules: module_refs,
       functions: function_refs
     }
+  end
+
+  # Extracts function parameter types from a spec string
+  defp extract_param_types(spec) when is_binary(spec) do
+    case Regex.run(~r/\w+\(([^)]*)\)\s*::\s*([^\n]+)/, spec) do
+      [_, params, _] -> 
+        params 
+        |> String.split(",") 
+        |> Enum.map(&String.trim/1)
+        |> Enum.map(fn param ->
+          param
+          |> String.split("::")
+          |> List.last()
+          |> String.trim()
+        end)
+      _ -> []
+    end
+  end
+  
+  defp extract_param_types(_), do: []
+
+  # Extracts the return type from a spec string
+  defp extract_return_type(spec) when is_binary(spec) do
+    case Regex.run(~r/::\s*([^\n]+)/, spec) do
+      [_, return_type] -> String.trim(return_type)
+      _ -> "any()"
+    end
+  end
+  
+  defp extract_return_type(_), do: "any()"
+  
+  # Counts the number of arguments in a function definition
+  defp count_args(line) do
+    case Regex.run(~r/\(([^)]*)\)/, line) do
+      [_, args] -> 
+        args 
+        |> String.split(",") 
+        |> Enum.count(&(String.trim(&1) != ""))
+      _ -> 0
+    end
   end
 
   # Helper to parse function arguments

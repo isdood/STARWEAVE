@@ -91,7 +91,7 @@ Enable STARWEAVE to answer questions about its own codebase by:
      - Supports user-specific conversation history
 
 2. **Improve Code Understanding**
-   - [ ] Enhance context extraction (function docs, type specs, module attributes)
+   - [x] Enhance context extraction (function docs, type specs, module attributes)
    - [x] Implement cross-referencing between related code elements
    - [ ] Add support for Elixir-specific constructs (macros, protocols, behaviours)
    - [ ] Improve handling of different file types

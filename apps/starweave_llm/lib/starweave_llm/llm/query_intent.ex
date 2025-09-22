@@ -3,7 +3,7 @@ defmodule StarweaveLlm.LLM.QueryIntent do
   Handles detection of user intent from natural language queries.
   
   This module is responsible for determining the user's intent when making a query,
-  such as whether they're looking for code explanations, documentation, or general
+  such as  code explanation, documentation, or general
   information. This helps route the query to the appropriate handler and provide
   more relevant responses.
   """
@@ -42,8 +42,24 @@ defmodule StarweaveLlm.LLM.QueryIntent do
     end
   end
   
-  # Simple pattern matching for common intents
-  @spec detect_simple_intent(String.t()) :: {:ok, intent()} | :unknown
+  @doc """
+  Extracts a filename from a query asking to explain code.
+  
+  ## Examples
+      iex> extract_filename("explain lib/foo/bar.ex from your codebase")
+      "lib/foo/bar.ex"
+      
+      iex> extract_filename("no match here")
+      nil
+  """
+  @spec extract_filename(String.t()) :: String.t() | nil
+  def extract_filename(query) when is_binary(query) do
+    case Regex.run(~r/explain\s+([\w\._\/]+)\s+from\s+your\s+codebase/i, query) do
+      [_, filename] -> filename
+      _ -> nil
+    end
+  end
+  
   defp detect_simple_intent(query) when is_binary(query) do
     query = String.downcase(query)
     
@@ -89,38 +105,39 @@ defmodule StarweaveLlm.LLM.QueryIntent do
     end
   end
   
-  # Use LLM for more complex intent detection
   @spec detect_with_llm(String.t(), module(), keyword()) :: intent_result()
   defp detect_with_llm(query, llm_client, _opts) do
     prompt = build_intent_detection_prompt(query)
     
-    case llm_client.complete(prompt) do
-      {:ok, response} ->
-        parse_intent_response(response, query)
-        
-      _error ->
+    with {:ok, response} <- llm_client.query(prompt),
+         {:ok, intent, _} = result <- parse_intent_response(response, query) do
+      result
+    else
+      _ ->
         # Fall back to knowledge base if LLM fails
         {:ok, :knowledge_base, query}
     end
   end
   
-  @spec build_intent_detection_prompt(String.t()) :: String.t()
   defp build_intent_detection_prompt(query) do
     """
-    Determine the intent of the following user query. Respond with ONLY one of the following:
+    Analyze the following user query and determine the most appropriate intent category:
+
+    Query: #{query}
+
+    Available intents:
     - CODE_EXPLANATION: If the user is asking to explain or understand code
     - DOCUMENTATION: If the user is looking for documentation or examples
     - KNOWLEDGE_BASE: If the user is asking a general knowledge question
-    
-    Query: #{query}
+
+    Respond with only the intent name (e.g., CODE_EXPLANATION).
     """
   end
   
-  @spec parse_intent_response(String.t(), String.t()) :: intent_result()
   defp parse_intent_response(response, original_query) do
     response = String.trim(response)
     
-    intent = case String.upcase(response) do
+    intent = case response do
       "CODE_EXPLANATION" -> :code_explanation
       "DOCUMENTATION" -> :documentation
       _ -> :knowledge_base
@@ -130,11 +147,16 @@ defmodule StarweaveLlm.LLM.QueryIntent do
   end
   
   @doc """
-  Returns a human-readable description of an intent.
+  Returns a human-readable description of an intent atom.
+  
+  ## Examples
+      iex> describe_intent(:code_explanation)
+      "code explanation"
   """
   @spec describe_intent(atom()) :: String.t()
   def describe_intent(:code_explanation), do: "code explanation"
   def describe_intent(:documentation), do: "documentation lookup"
-  def describe_intent(:knowledge_base), do: "knowledge base query"
+  def describe_intent(:knowledge_base), do: "general knowledge"
+  def describe_intent(:unknown), do: "unknown intent"
   def describe_intent(_), do: "unknown intent"
 end

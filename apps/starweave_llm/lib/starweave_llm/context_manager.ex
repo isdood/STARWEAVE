@@ -33,12 +33,8 @@ defmodule StarweaveLlm.ContextManager do
   @default_max_history 20
   
   @doc """
-  Creates a new context manager with default settings.
-  """
-  @spec new(keyword()) :: t()
-  @doc """
   Creates a new context with the given options.
-  
+
   Options:
   - :max_tokens - Maximum tokens for the context window (default: 4000)
   - :max_history - Maximum number of messages to keep in history (default: 20)

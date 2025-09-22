@@ -38,7 +38,6 @@ defmodule StarweaveLlm.Embeddings.BertEmbedder do
         {:ok, %__MODULE__{
           model_name: model_name,
           batch_size: batch_size,
-          serving: state.serving,
           model_info: state.model_info,
           tokenizer: state.tokenizer
         }}
@@ -52,17 +51,10 @@ defmodule StarweaveLlm.Embeddings.BertEmbedder do
     with {:ok, model_info} <- Bumblebee.load_model({:hf, model_name}, architecture: :base),
          {:ok, tokenizer} <- Bumblebee.load_tokenizer({:hf, model_name}) do
 
-      serving = Bumblebee.Text.text_embedding(
-        model_info,
-        tokenizer,
-        defn_options: [compiler: EXLA],
-        embedding_processor: :mean_pooling
-      )
-
+      # Try without EXLA first
       state = %{
         model_name: model_name,
         batch_size: batch_size,
-        serving: serving,
         model_info: model_info,
         tokenizer: tokenizer
       }
@@ -141,24 +133,25 @@ defmodule StarweaveLlm.Embeddings.BertEmbedder do
     end
   end
 
-  defp process_embedding_batch(texts, %{serving: serving, batch_size: batch_size} = _state) do
+  defp process_embedding_batch(texts, %{model_info: model_info, tokenizer: tokenizer, batch_size: batch_size} = _state) do
     try do
-      results = 
+      # Process each text individually for now
+      results =
         texts
-        |> Enum.chunk_every(batch_size, batch_size, [])
-        |> Enum.reduce_while([], fn batch, acc ->
-          case Bumblebee.Text.text_embedding(serving, batch) do
+        |> Enum.map(fn text ->
+          case Bumblebee.Text.text_embedding(model_info, tokenizer, text) do
             %{embeddings: embeddings} ->
-              {:cont, [embeddings | acc]}
+              embeddings
             error ->
-              Logger.error("Error generating embeddings: #{inspect(error)}")
-              {:halt, {:error, :embedding_failed}}
+              Logger.error("Error generating embedding for text: #{inspect(error)}")
+              nil
           end
         end)
+        |> Enum.filter(&(&1 != nil))
 
       case results do
-        {:error, reason} -> {:error, reason}
-        embeddings -> {:ok, List.flatten(Enum.reverse(embeddings))}
+        [] -> {:error, :no_embeddings_generated}
+        embeddings -> {:ok, embeddings}
       end
     rescue
       e ->

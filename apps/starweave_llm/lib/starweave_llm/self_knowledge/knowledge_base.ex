@@ -418,32 +418,39 @@ defmodule StarweaveLlm.SelfKnowledge.KnowledgeBase do
     |> Enum.sum()
   end
 
-  # Gets surrounding context for an entry
-  defp get_context(%{file_path: file_path, line_number: line_number}) when is_integer(line_number) do
-    # TODO: Implement context retrieval from source files
-    # This could include surrounding lines of code, function docs, etc.
-    %{
-      file_path: file_path,
-      line_number: line_number,
-      snippet: "..."  # Placeholder for actual context
-    }
-  end
-  defp get_context(_), do: nil
-
-  @impl true
-  def terminate(_reason, %{dets_ref: dets_ref}) when is_reference(dets_ref) do
+  # Gets surrounding context for an entry with enhanced information
+  defp get_context(%{file_path: file_path, line_number: line_number, parsed_content: parsed_content}) when is_integer(line_number) do
     try do
-      :ok = :dets.close(dets_ref)
+      case File.read(file_path) do
+        {:ok, content} ->
+          lines = String.split(content, ~r/\n/, trim: false)
+          start_line = max(1, line_number - 5)
+          end_line = min(length(lines), line_number + 5)
+          context_lines = Enum.slice(lines, start_line - 1, end_line - start_line + 1)
+          %{
+            file_path: file_path,
+            line_number: line_number,
+            snippet: Enum.join(context_lines, "\n"),
+            total_lines: length(lines)
+          }
+      {:error, reason} ->
+        %{
+          file_path: file_path,
+          line_number: line_number,
+          error: reason
+        }
+      end
     rescue
       e ->
-        Logger.error("Error closing DETS table: #{inspect(e)}")
-        :ok
+        %{
+          file_path: file_path,
+          line_number: line_number,
+          error: "Failed to read file: #{inspect(e)}"
+        }
     end
   end
-  
-  def terminate(_reason, _state) do
-    :ok
-  end
+
+  # Gets related functions from the same module
 
   # Private functions
 

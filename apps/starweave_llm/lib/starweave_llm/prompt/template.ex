@@ -129,7 +129,7 @@ defmodule StarweaveLlm.Prompt.Template do
       template_path = 
         :starweave_llm
         |> :code.priv_dir()
-        |> Path.join("templates/chat/#{version}.eex")
+        |> Path.join("templates/chat/#{name}.eex")
       
       case File.read(template_path) do
         {:ok, content} -> 
@@ -175,6 +175,14 @@ defmodule StarweaveLlm.Prompt.Template do
         # Fall back to legacy path for backward compatibility
         load_legacy_template(name, "latest")
     end
+  end
+  
+  def load_template(:default, :default) do
+    load_template(:default, "default")
+  end
+  
+  def load_template(name, :default) when is_atom(name) do
+    load_template(name, "default")
   end
   
   # For backward compatibility
