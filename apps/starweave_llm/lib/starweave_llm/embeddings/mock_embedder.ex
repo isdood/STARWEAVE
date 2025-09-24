@@ -7,6 +7,30 @@ defmodule StarweaveLlm.Embeddings.MockEmbedder do
   @behaviour StarweaveLlm.Embeddings.Behaviour
 
   @doc """
+  Returns a child specification for the MockEmbedder.
+  This is required when the module is used as a child process.
+  """
+  @spec child_spec(keyword()) :: Supervisor.child_spec()
+  def child_spec(_opts) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, []},
+      type: :worker,
+      restart: :permanent,
+      shutdown: 500
+    }
+  end
+
+  @doc """
+  Starts the MockEmbedder.
+  Since this is a stateless module, we just return :ok.
+  """
+  @spec start_link() :: {:ok, pid()}
+  def start_link do
+    {:ok, self()}
+  end
+
+  @doc """
   Generates a simple deterministic embedding for the given text.
   For testing purposes only.
   """
