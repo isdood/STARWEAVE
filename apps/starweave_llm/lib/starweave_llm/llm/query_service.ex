@@ -12,6 +12,8 @@ defmodule StarweaveLlm.LLM.QueryService do
   alias StarweaveLlm.SelfKnowledge.KnowledgeBase
   alias StarweaveLlm.Embeddings.BertEmbedder
   alias StarweaveLlm.LLM.PromptTemplates
+  alias StarweaveLlm.LLM.CodeTemplates
+  alias StarweaveLlm.LLM.OllamaClient
   alias StarweaveLlm.TextAnalysis
   
   @type state :: %{
@@ -49,6 +51,66 @@ defmodule StarweaveLlm.LLM.QueryService do
       GenServer.call(pid, {:query, query, opts})
     end
   end
+
+  # Resolve a filename in the user's query and produce a grounded explanation strictly from the file content
+  defp resolve_and_explain_file(knowledge_base, query) do
+    case StarweaveLlm.LLM.QueryIntent.extract_filename(query) do
+      nil -> :no_file_match
+      filename ->
+        case resolve_file_path(knowledge_base, filename) do
+          {:ok, file_path} ->
+            case KnowledgeBase.get(knowledge_base, file_path) do
+              {:ok, entry} ->
+                code = entry.content || ""
+                prompt = CodeTemplates.explain_code(code, entry.language || "elixir",
+                  file_path: file_path,
+                  context: "Explain only what is present in this file. If something is not present in the code, say you don't know.")
+                case OllamaClient.complete(prompt, temperature: 0.2) do
+                  {:ok, response} ->
+                    sources = [
+                      %{
+                        title: file_path,
+                        url: nil,
+                        snippet: String.slice(code, 0, 200) <> "...",
+                        score: 1.0,
+                        content: code
+                      }
+                    ]
+                    formatted = response <> "\n\nSources:\n" <> format_sources_for_display(sources)
+                    {:ok, formatted, sources}
+                  error -> error
+                end
+              _ -> :no_file_match
+            end
+          _ -> :no_file_match
+        end
+    end
+  end
+
+  # Map a basename like "knowledge_base.ex" to a full file path by scanning KB documents
+  defp resolve_file_path(knowledge_base, filename) when is_binary(filename) do
+    case KnowledgeBase.get_all_documents(knowledge_base) do
+      {:ok, docs} when is_list(docs) ->
+        matches =
+          docs
+          |> Enum.filter(fn doc ->
+            case doc do
+              %{file_path: path} when is_binary(path) ->
+                Path.basename(path) == filename
+              _ -> false
+            end
+          end)
+
+        case matches do
+          [] -> {:error, :not_found}
+          [_single] = list -> {:ok, hd(list).file_path}
+          many ->
+            preferred = Enum.find(many, fn d -> String.contains?(d.file_path, "apps/starweave_llm/lib/") end) || hd(many)
+            {:ok, preferred.file_path}
+        end
+      _ -> {:error, :no_documents}
+    end
+  end
   
   # Server callbacks
   
@@ -73,51 +135,66 @@ defmodule StarweaveLlm.LLM.QueryService do
     # Update conversation history
     updated_history = update_history(state.conversation_history, {:user, query}, opts)
     
-    result = with {:ok, needs_search, search_query} <- determine_search_needed(query, updated_history, state.llm_client),
-                 {:ok, search_results} <- maybe_search_knowledge_base(needs_search, search_query, state, opts) do
-      
-      if Keyword.get(opts, :raw_results, false) do
-        # Return raw search results when raw_results: true is specified
-        {:ok, search_results}
-      else
-        # Generate LLM response with formatted results
-        with {:ok, response} <- generate_llm_response(query, search_results, updated_history, state.llm_client) do
-          # Get the sources from the search results
-          sources = Enum.map(search_results, fn %{entry: entry, score: score} ->
-            %{
-              title: entry.file_path || "Document",
-              url: get_in(entry, [:metadata, :url]),
-              snippet: String.slice(entry.content || "", 0, 200) <> "...",
-              score: score,
-              content: entry.content
-            }
-          end)
-          
-          # Format the response with sources if available
-          formatted_response = if sources != [] do
-            sources_text = format_sources_for_display(sources)
-            "#{response}\n\nSources:\n#{sources_text}"
-          else
-            response
-          end
-          
-          {:ok, formatted_response, sources}
-        end
-      end
-    else
-      error -> error
-    end
-    
-    # Update state with new history if we have a response
-    case result do
-      {:ok, response, _sources} ->
+    # Fast path: if the user asked to explain a specific file, resolve and explain that file directly
+    case resolve_and_explain_file(state.knowledge_base, query) do
+      {:ok, response, sources} ->
         new_state = %{state | conversation_history: update_history(updated_history, {:assistant, {:ok, response}}, opts)}
         {:reply, {:ok, response}, new_state}
-      {:ok, response} ->
-        # This is the raw results case, don't update history with raw results
-        {:reply, {:ok, response}, state}
-      error ->
-        {:reply, error, state}
+      :no_file_match ->
+        # Continue with regular KB flow
+        :cont
+      {:error, _} ->
+        # Fall back to regular KB flow on error
+        :cont
+    end
+    |> case do
+      :cont ->
+        result = with {:ok, needs_search, search_query} <- determine_search_needed(query, updated_history, state.llm_client),
+                     {:ok, search_results} <- maybe_search_knowledge_base(needs_search, search_query, state, opts) do
+        
+          if Keyword.get(opts, :raw_results, false) do
+            # Return raw search results when raw_results: true is specified
+            {:ok, search_results}
+          else
+            # Generate LLM response with formatted results
+            with {:ok, response} <- generate_llm_response(query, search_results, updated_history, state.llm_client) do
+              # Get the sources from the search results
+              sources = Enum.map(search_results, fn %{entry: entry, score: score} ->
+                %{
+                  title: entry.file_path || "Document",
+                  url: get_in(entry, [:metadata, :url]),
+                  snippet: String.slice(entry.content || "", 0, 200) <> "...",
+                  score: score,
+                  content: entry.content
+                }
+              end)
+              
+              # Format the response with sources if available
+              formatted_response = if sources != [] do
+                sources_text = format_sources_for_display(sources)
+                "#{response}\n\nSources:\n#{sources_text}"
+              else
+                response
+              end
+              
+              {:ok, formatted_response, sources}
+            end
+          end
+        else
+          error -> error
+        end
+        
+        # Update state with new history if we have a response
+        case result do
+          {:ok, response, _sources} ->
+            new_state = %{state | conversation_history: update_history(updated_history, {:assistant, {:ok, response}}, opts)}
+            {:reply, {:ok, response}, new_state}
+          {:ok, response} ->
+            # This is the raw results case, don't update history with raw results
+            {:reply, {:ok, response}, state}
+          error ->
+            {:reply, error, state}
+        end
     end
   end
   
@@ -182,6 +259,8 @@ defmodule StarweaveLlm.LLM.QueryService do
   end
   
   defp maybe_search_knowledge_base(true, search_query, state, opts) do
+    # Ensure the downstream keyword search has access to the original query text
+    opts = Keyword.put(opts, :query, search_query)
     with {:ok, embedding} <- embed_query(search_query, state.embedder),
          {:ok, results} <- search_knowledge_base(state.knowledge_base, embedding, opts) do
       {:ok, results}

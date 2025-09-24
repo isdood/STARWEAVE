@@ -3,6 +3,11 @@
 ## Overview
 The Self-Knowledge System enables STARWEAVE to understand and reason about its own codebase through semantic search and code analysis. This document tracks implementation status and next steps.
 
+## Notes
+- The self-knowledge system is currently in development, therefore major changes are expected.
+- The system is currently functional & STARWEAVE can answer questions about its own codebase via the web interface.
+- Optimizations are being considered to improve performance, specifically when it comes to hallucination reduction.
+
 ## Primary Goal
 Enable STARWEAVE to answer questions about its own codebase by:
 1. Understanding when a user query requires knowledge base lookup

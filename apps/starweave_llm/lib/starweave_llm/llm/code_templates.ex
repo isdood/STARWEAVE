@@ -32,7 +32,7 @@ defmodule StarweaveLlm.LLM.CodeTemplates do
       see_also: Keyword.get(opts, :see_also, [])
     }
     
-    case Template.render_template(:explanation, :code, variables) do
+    case Template.render_template("explanation", "code", variables) do
       {:ok, explanation} -> explanation
       _ -> default_code_explanation(code, language, opts)
     end

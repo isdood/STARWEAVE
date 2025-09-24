@@ -166,20 +166,20 @@ defmodule StarweaveLlm.SelfKnowledge.CodeIndexer do
   defp extract_documentation(_), do: ""
 
   defp generate_embedding(%{content: content} = _entry) when is_binary(content) do
-    content = 
+    content =
       content
       |> String.slice(0, 4_096)  # Limit to first 4K characters
-      
+
     case Embeddings.embed_texts([content]) do
-      {:ok, [embedding]} -> 
-        {:ok, embedding}
-      error -> 
-        Logger.error("Embedding generation failed: #{inspect(error)}")
-        error
+      {:ok, [embedding]} ->
+        embedding
+      other ->
+        Logger.error("Embedding generation failed: #{inspect(other)}")
+        nil
     end
   end
-  
-  defp generate_embedding(_), do: {:error, :invalid_content}
+
+  defp generate_embedding(_), do: nil
   
   # Helper to check if a file should be ignored
   defp ignored_file?(file_path) do
