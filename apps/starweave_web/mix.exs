@@ -100,8 +100,9 @@ defmodule StarweaveWeb.MixProject do
     [
       setup: ["deps.get"],
       precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"],
+      # Delegate protobuf generation to the canonical script in starweave_llm
       "protobuf.gen": [
-        "cmd protoc --elixir_out=plugins=grpc:lib/starweave_web/grpc -Ipriv/protos priv/protos/starweave.proto"
+        "cmd bash apps/starweave_llm/generate_protos.sh"
       ],
       "protoc.gen": ["protobuf.gen"]
     ]

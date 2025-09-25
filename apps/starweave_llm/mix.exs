@@ -39,8 +39,17 @@ defmodule StarweaveLlm.MixProject do
       # JSON encoding/decoding
       {:jason, "~> 1.4"},
       
+      # gRPC and Protocol Buffers
+      {:grpc, "~> 0.7.0"},
+      {:protobuf, "~> 0.11.0"},
+      {:google_protos, "~> 0.3"},
+      
+      # Connection pooling
+      {:poolboy, "~> 1.5"},
+      
       # Test dependencies
-      {:bypass, "~> 2.1", only: :test}
+      {:bypass, "~> 2.1", only: :test},
+      {:mimic, "~> 1.7", only: :test}
     ]
   end
 end

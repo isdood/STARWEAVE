@@ -19,7 +19,10 @@ defmodule StarweaveLlm.Application do
       {StarweaveLlm.SelfKnowledge.Supervisor, []},
       
       # Start the LLM services
-      {StarweaveLlm.LLM.Supervisor, []}
+      {StarweaveLlm.LLM.Supervisor, []},
+      
+      # Start the Image Generation service
+      {StarweaveLlm.ImageGeneration.Supervisor, []}
     ]
 
     # Start the Telemetry supervisor

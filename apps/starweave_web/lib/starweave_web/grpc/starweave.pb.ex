@@ -1,3 +1,4 @@
+unless Code.ensure_loaded?(Starweave.Pattern) do
 defmodule Starweave.Pattern.MetadataEntry do
   @moduledoc false
 
@@ -107,4 +108,6 @@ defmodule Starweave.PatternService.Stub do
   @moduledoc false
 
   use GRPC.Stub, service: Starweave.PatternService.Service
+end
+
 end

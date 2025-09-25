@@ -16,6 +16,11 @@
 - [x] Added ROCm (AMD GPU) support with automatic fallback to CPU
 - [x] Improved error handling for model loading and device management
 - [x] Enhanced logging and diagnostics for better troubleshooting
+- [x] Elixir gRPC client and supervisor
+- [x] Canonical protobuf generation (single source of truth) via `services/python/protos/starweave.proto`
+- [x] Protobuf generation script: `apps/starweave_llm/generate_protos.sh`
+- [x] Mix task: `mix image.gen` for CLI image generation
+- [x] End-to-end Elixir verification (outputs: `elixir_test_output.png`, `elixir_task_output.png`)
 
 ### 🔄 In Progress
 - [ ] Performance optimization for concurrent requests
@@ -25,7 +30,6 @@
 - [ ] Implement model warmup and preloading
 
 ### 📅 Up Next
-- [ ] Elixir client implementation
 - [ ] Template system integration
 - [ ] Web interface components
 - [ ] Testing and documentation
@@ -47,7 +51,7 @@ The Image Generation System enables STARWEAVE to generate images based on natura
 #### 1. Image Generation Service (Python/gRPC)
 - **Location**: `services/python/server/image_generation_servicer.py`
 - **Framework**: gRPC service with health checking
-- **Models**: HuggingFace Diffusers (Stable Diffusion 2.1 by default)
+- **Models**: HuggingFace Diffusers (Stable Diffusion v1.5 by default: `runwayml/stable-diffusion-v1-5`)
 - **Features**:
   - Text-to-image generation
   - Model caching and management
@@ -74,6 +78,50 @@ python -m server.image_generation_servicer \
 # Initialized with device: cpu, dtype: torch.float32  # When falling back to CPU
 ```
 
+### Elixir Quickstart
+
+#### Generate Protobuf Modules
+
+Prerequisites:
+
+- Install `protoc` (Protocol Buffers compiler)
+- Install Elixir plugin for `protoc` (provides `protoc-gen-elixir`):
+
+```bash
+mix escript.install hex protobuf --force
+export PATH="$HOME/.mix/escripts:$PATH"
+```
+
+Generate Elixir modules from `starweave.proto`:
+
+```bash
+bash apps/starweave_llm/generate_protos.sh
+```
+
+Compile:
+
+```bash
+mix deps.get && mix compile
+```
+
+Verify end-to-end (requires Python gRPC server running on `localhost:50051`):
+
+```bash
+mix run test_image_gen.exs
+```
+
+Or generate directly via Mix task:
+
+```bash
+mix image.gen --prompt "A cozy cabin in the woods, snow" --out image.png \
+  --width 512 --height 512 --steps 20 --guidance_scale 7.5
+```
+
+Options:
+- `--model runwayml/stable-diffusion-v1-5` (default)
+- `--seed <int>` (defaults to random)
+- `--style <string>` (optional)
+
 ##### Environment Variables
 - `CUDA_VISIBLE_DEVICES`: Control GPU visibility (e.g., "0" for first GPU)
 - `TORCH_DTYPE`: Set tensor precision (float16, float32, bfloat16)
@@ -86,6 +134,19 @@ python -m server.image_generation_servicer \
 # Check service health
 grpc_cli call localhost:50051 grpc.health.v1.Health/Check ""
 ```
+
+## Protobuf Consolidation
+
+We now use a single canonical `.proto` source:
+
+- Source of truth: `services/python/protos/starweave.proto`
+- Elixir generation script: `apps/starweave_llm/generate_protos.sh`
+- Generated Elixir modules: `apps/starweave_llm/lib/starweave_llm/image_generation/generated/`
+
+Notes:
+- The script ensures `protoc` and `protoc-gen-elixir` are available and adjusts include paths automatically.
+- We added a guard around `apps/starweave_web/lib/starweave_web/grpc/starweave.pb.ex` to avoid redefining modules if they’re already loaded from the canonical generated modules.
+- The `mix protobuf.gen` alias in `apps/starweave_web` now delegates to the canonical script.
 
 #### 2. Elixir Integration Layer
 - **Location**: `apps/starweave_llm/lib/starweave_llm/image_generation/`
@@ -342,7 +403,7 @@ message ImageSettings {
 
 ### Example Usage
 
-#### Generate an Image
+#### Generate an Image (Python)
 ```python
 import grpc
 from starweave_pb2 import ImageRequest, ImageSettings
@@ -356,10 +417,11 @@ request = ImageRequest(
     settings=ImageSettings(
         width=768,
         height=768,
-        num_inference_steps=30,
+        steps=30,
         guidance_scale=7.5,
         seed=42
-    )
+    ),
+    model="runwayml/stable-diffusion-v1-5"
 )
 
 response = stub.GenerateImage(request)
