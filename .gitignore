@@ -59,3 +59,42 @@ Thumbs.db
 # Test logs
 test-logs.txt
 
+# Model files and caches
+**/models/
+**/__pycache__/
+**/*.py[cod]
+*$py.class
+
+# Python virtual environment
+venv/
+env/
+ENV/
+
+# Python build and distribution
+dist/
+build/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# PyCharm
+.idea/
+
+# Generated protobuf files (they should be generated during build)
+**/generated/
+
+# Logs
+*.log
+
+# Local development
+.env
+!.env.example
+

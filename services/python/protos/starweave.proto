@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package starweave;
 
+import "google/protobuf/timestamp.proto";
+
 // The Pattern Recognition service definition
 service PatternService {
   // Process a pattern and return recognition results
@@ -12,6 +14,18 @@ service PatternService {
   
   // Get system status
   rpc GetStatus (StatusRequest) returns (StatusResponse) {}
+}
+
+// Image Generation Service
+service ImageGenerationService {
+  // Generate image from text description
+  rpc GenerateImage (ImageRequest) returns (ImageResponse) {}
+  
+  // Generate multiple images with variations
+  rpc GenerateImageVariations (ImageVariationsRequest) returns (stream ImageResponse) {}
+  
+  // Get available models and capabilities
+  rpc GetImageModels (ModelRequest) returns (ModelResponse) {}
 }
 
 // Pattern representation
@@ -48,4 +62,59 @@ message StatusResponse {
   string version = 2;  // Service version
   int64 uptime = 3;    // Uptime in seconds
   map<string, string> metrics = 4;  // System metrics
+}
+
+// Image Generation Messages
+message ImageRequest {
+  string prompt = 1;              // Text description
+  string model = 2;               // Model to use
+  ImageSettings settings = 3;     // Generation parameters
+  string user_id = 4;             // For user-specific generation
+  repeated string context = 5;    // Conversation context
+}
+
+message ImageResponse {
+  string request_id = 1;          // Correlation ID
+  bytes image_data = 2;           // Generated image (PNG/JPEG)
+  string format = 3;              // Image format
+  GenerationMetadata metadata = 4; // Generation details
+  string error = 5;               // Error message if failed
+}
+
+message ImageSettings {
+  int32 width = 1;                // Image dimensions
+  int32 height = 2;
+  int32 steps = 3;                // Generation steps
+  float guidance_scale = 4;       // Prompt adherence
+  int32 seed = 5;                 // Random seed
+  string style = 6;               // Art style preset
+}
+
+message GenerationMetadata {
+  string model = 1;               // Model used for generation
+  int64 generation_time_ms = 2;    // Time taken to generate (ms)
+  int32 seed = 3;                 // Seed used for generation
+  google.protobuf.Timestamp generated_at = 4; // Timestamp of generation
+  map<string, string> debug_info = 5; // Additional debug information
+}
+
+message ImageVariationsRequest {
+  ImageRequest base_request = 1;   // Base image request
+  int32 num_variations = 2;        // Number of variations to generate
+  float variation_strength = 3;    // Strength of variations (0.0-1.0)
+}
+
+message ModelRequest {
+  // Can be extended with filtering parameters
+}
+
+message ModelResponse {
+  message ModelInfo {
+    string id = 1;                 // Model identifier
+    string name = 2;               // Human-readable name
+    string description = 3;         // Model description
+    repeated string capabilities = 4; // Supported capabilities
+    map<string, string> parameters = 5; // Supported parameters and their types
+  }
+  repeated ModelInfo models = 1;    // Available models
 }

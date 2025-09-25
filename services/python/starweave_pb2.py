@@ -22,9 +22,10 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0fstarweave.proto\x12\tstarweave\"\x9b\x01\n\x07Pattern\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\x12\x32\n\x08metadata\x18\x03 \x03(\x0b\x32 .starweave.Pattern.MetadataEntry\x12\x11\n\ttimestamp\x18\x04 \x01(\x01\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"F\n\x0ePatternRequest\x12#\n\x07pattern\x18\x01 \x01(\x0b\x32\x12.starweave.Pattern\x12\x0f\n\x07\x63ontext\x18\x02 \x03(\t\"\xa7\x02\n\x0fPatternResponse\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x0e\n\x06labels\x18\x02 \x03(\t\x12@\n\x0b\x63onfidences\x18\x03 \x03(\x0b\x32+.starweave.PatternResponse.ConfidencesEntry\x12\r\n\x05\x65rror\x18\x04 \x01(\t\x12:\n\x08metadata\x18\x05 \x03(\x0b\x32(.starweave.PatternResponse.MetadataEntry\x1a\x32\n\x10\x43onfidencesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"!\n\rStatusRequest\x12\x10\n\x08\x64\x65tailed\x18\x01 \x01(\x08\"\xaa\x01\n\x0eStatusResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0e\n\x06uptime\x18\x03 \x01(\x03\x12\x37\n\x07metrics\x18\x04 \x03(\x0b\x32&.starweave.StatusResponse.MetricsEntry\x1a.\n\x0cMetricsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x32\xf0\x01\n\x0ePatternService\x12K\n\x10RecognizePattern\x12\x19.starweave.PatternRequest\x1a\x1a.starweave.PatternResponse\"\x00\x12M\n\x0eStreamPatterns\x12\x19.starweave.PatternRequest\x1a\x1a.starweave.PatternResponse\"\x00(\x01\x30\x01\x12\x42\n\tGetStatus\x12\x18.starweave.StatusRequest\x1a\x19.starweave.StatusResponse\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0fstarweave.proto\x12\tstarweave\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9b\x01\n\x07Pattern\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\x12\x32\n\x08metadata\x18\x03 \x03(\x0b\x32 .starweave.Pattern.MetadataEntry\x12\x11\n\ttimestamp\x18\x04 \x01(\x01\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"F\n\x0ePatternRequest\x12#\n\x07pattern\x18\x01 \x01(\x0b\x32\x12.starweave.Pattern\x12\x0f\n\x07\x63ontext\x18\x02 \x03(\t\"\xa7\x02\n\x0fPatternResponse\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x0e\n\x06labels\x18\x02 \x03(\t\x12@\n\x0b\x63onfidences\x18\x03 \x03(\x0b\x32+.starweave.PatternResponse.ConfidencesEntry\x12\r\n\x05\x65rror\x18\x04 \x01(\t\x12:\n\x08metadata\x18\x05 \x03(\x0b\x32(.starweave.PatternResponse.MetadataEntry\x1a\x32\n\x10\x43onfidencesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"!\n\rStatusRequest\x12\x10\n\x08\x64\x65tailed\x18\x01 \x01(\x08\"\xaa\x01\n\x0eStatusResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0e\n\x06uptime\x18\x03 \x01(\x03\x12\x37\n\x07metrics\x18\x04 \x03(\x0b\x32&.starweave.StatusResponse.MetricsEntry\x1a.\n\x0cMetricsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"{\n\x0cImageRequest\x12\x0e\n\x06prompt\x18\x01 \x01(\t\x12\r\n\x05model\x18\x02 \x01(\t\x12*\n\x08settings\x18\x03 \x01(\x0b\x32\x18.starweave.ImageSettings\x12\x0f\n\x07user_id\x18\x04 \x01(\t\x12\x0f\n\x07\x63ontext\x18\x05 \x03(\t\"\x87\x01\n\rImageResponse\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x12\n\nimage_data\x18\x02 \x01(\x0c\x12\x0e\n\x06\x66ormat\x18\x03 \x01(\t\x12/\n\x08metadata\x18\x04 \x01(\x0b\x32\x1d.starweave.GenerationMetadata\x12\r\n\x05\x65rror\x18\x05 \x01(\t\"r\n\rImageSettings\x12\r\n\x05width\x18\x01 \x01(\x05\x12\x0e\n\x06height\x18\x02 \x01(\x05\x12\r\n\x05steps\x18\x03 \x01(\x05\x12\x16\n\x0eguidance_scale\x18\x04 \x01(\x02\x12\x0c\n\x04seed\x18\x05 \x01(\x05\x12\r\n\x05style\x18\x06 \x01(\t\"\xf3\x01\n\x12GenerationMetadata\x12\r\n\x05model\x18\x01 \x01(\t\x12\x1a\n\x12generation_time_ms\x18\x02 \x01(\x03\x12\x0c\n\x04seed\x18\x03 \x01(\x05\x12\x30\n\x0cgenerated_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12@\n\ndebug_info\x18\x05 \x03(\x0b\x32,.starweave.GenerationMetadata.DebugInfoEntry\x1a\x30\n\x0e\x44\x65\x62ugInfoEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"{\n\x16ImageVariationsRequest\x12-\n\x0c\x62\x61se_request\x18\x01 \x01(\x0b\x32\x17.starweave.ImageRequest\x12\x16\n\x0enum_variations\x18\x02 \x01(\x05\x12\x1a\n\x12variation_strength\x18\x03 \x01(\x02\"\x0e\n\x0cModelRequest\"\x91\x02\n\rModelResponse\x12\x32\n\x06models\x18\x01 \x03(\x0b\x32\".starweave.ModelResponse.ModelInfo\x1a\xcb\x01\n\tModelInfo\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x14\n\x0c\x63\x61pabilities\x18\x04 \x03(\t\x12\x46\n\nparameters\x18\x05 \x03(\x0b\x32\x32.starweave.ModelResponse.ModelInfo.ParametersEntry\x1a\x31\n\x0fParametersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x32\xf0\x01\n\x0ePatternService\x12K\n\x10RecognizePattern\x12\x19.starweave.PatternRequest\x1a\x1a.starweave.PatternResponse\"\x00\x12M\n\x0eStreamPatterns\x12\x19.starweave.PatternRequest\x1a\x1a.starweave.PatternResponse\"\x00(\x01\x30\x01\x12\x42\n\tGetStatus\x12\x18.starweave.StatusRequest\x1a\x19.starweave.StatusResponse\"\x00\x32\x81\x02\n\x16ImageGenerationService\x12\x44\n\rGenerateImage\x12\x17.starweave.ImageRequest\x1a\x18.starweave.ImageResponse\"\x00\x12Z\n\x17GenerateImageVariations\x12!.starweave.ImageVariationsRequest\x1a\x18.starweave.ImageResponse\"\x00\x30\x01\x12\x45\n\x0eGetImageModels\x12\x17.starweave.ModelRequest\x1a\x18.starweave.ModelResponse\"\x00\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,24 +40,50 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_PATTERNRESPONSE_METADATAENTRY']._serialized_options = b'8\001'
   _globals['_STATUSRESPONSE_METRICSENTRY']._loaded_options = None
   _globals['_STATUSRESPONSE_METRICSENTRY']._serialized_options = b'8\001'
-  _globals['_PATTERN']._serialized_start=31
-  _globals['_PATTERN']._serialized_end=186
-  _globals['_PATTERN_METADATAENTRY']._serialized_start=139
-  _globals['_PATTERN_METADATAENTRY']._serialized_end=186
-  _globals['_PATTERNREQUEST']._serialized_start=188
-  _globals['_PATTERNREQUEST']._serialized_end=258
-  _globals['_PATTERNRESPONSE']._serialized_start=261
-  _globals['_PATTERNRESPONSE']._serialized_end=556
-  _globals['_PATTERNRESPONSE_CONFIDENCESENTRY']._serialized_start=457
-  _globals['_PATTERNRESPONSE_CONFIDENCESENTRY']._serialized_end=507
-  _globals['_PATTERNRESPONSE_METADATAENTRY']._serialized_start=139
-  _globals['_PATTERNRESPONSE_METADATAENTRY']._serialized_end=186
-  _globals['_STATUSREQUEST']._serialized_start=558
-  _globals['_STATUSREQUEST']._serialized_end=591
-  _globals['_STATUSRESPONSE']._serialized_start=594
-  _globals['_STATUSRESPONSE']._serialized_end=764
-  _globals['_STATUSRESPONSE_METRICSENTRY']._serialized_start=718
-  _globals['_STATUSRESPONSE_METRICSENTRY']._serialized_end=764
-  _globals['_PATTERNSERVICE']._serialized_start=767
-  _globals['_PATTERNSERVICE']._serialized_end=1007
+  _globals['_GENERATIONMETADATA_DEBUGINFOENTRY']._loaded_options = None
+  _globals['_GENERATIONMETADATA_DEBUGINFOENTRY']._serialized_options = b'8\001'
+  _globals['_MODELRESPONSE_MODELINFO_PARAMETERSENTRY']._loaded_options = None
+  _globals['_MODELRESPONSE_MODELINFO_PARAMETERSENTRY']._serialized_options = b'8\001'
+  _globals['_PATTERN']._serialized_start=64
+  _globals['_PATTERN']._serialized_end=219
+  _globals['_PATTERN_METADATAENTRY']._serialized_start=172
+  _globals['_PATTERN_METADATAENTRY']._serialized_end=219
+  _globals['_PATTERNREQUEST']._serialized_start=221
+  _globals['_PATTERNREQUEST']._serialized_end=291
+  _globals['_PATTERNRESPONSE']._serialized_start=294
+  _globals['_PATTERNRESPONSE']._serialized_end=589
+  _globals['_PATTERNRESPONSE_CONFIDENCESENTRY']._serialized_start=490
+  _globals['_PATTERNRESPONSE_CONFIDENCESENTRY']._serialized_end=540
+  _globals['_PATTERNRESPONSE_METADATAENTRY']._serialized_start=172
+  _globals['_PATTERNRESPONSE_METADATAENTRY']._serialized_end=219
+  _globals['_STATUSREQUEST']._serialized_start=591
+  _globals['_STATUSREQUEST']._serialized_end=624
+  _globals['_STATUSRESPONSE']._serialized_start=627
+  _globals['_STATUSRESPONSE']._serialized_end=797
+  _globals['_STATUSRESPONSE_METRICSENTRY']._serialized_start=751
+  _globals['_STATUSRESPONSE_METRICSENTRY']._serialized_end=797
+  _globals['_IMAGEREQUEST']._serialized_start=799
+  _globals['_IMAGEREQUEST']._serialized_end=922
+  _globals['_IMAGERESPONSE']._serialized_start=925
+  _globals['_IMAGERESPONSE']._serialized_end=1060
+  _globals['_IMAGESETTINGS']._serialized_start=1062
+  _globals['_IMAGESETTINGS']._serialized_end=1176
+  _globals['_GENERATIONMETADATA']._serialized_start=1179
+  _globals['_GENERATIONMETADATA']._serialized_end=1422
+  _globals['_GENERATIONMETADATA_DEBUGINFOENTRY']._serialized_start=1374
+  _globals['_GENERATIONMETADATA_DEBUGINFOENTRY']._serialized_end=1422
+  _globals['_IMAGEVARIATIONSREQUEST']._serialized_start=1424
+  _globals['_IMAGEVARIATIONSREQUEST']._serialized_end=1547
+  _globals['_MODELREQUEST']._serialized_start=1549
+  _globals['_MODELREQUEST']._serialized_end=1563
+  _globals['_MODELRESPONSE']._serialized_start=1566
+  _globals['_MODELRESPONSE']._serialized_end=1839
+  _globals['_MODELRESPONSE_MODELINFO']._serialized_start=1636
+  _globals['_MODELRESPONSE_MODELINFO']._serialized_end=1839
+  _globals['_MODELRESPONSE_MODELINFO_PARAMETERSENTRY']._serialized_start=1790
+  _globals['_MODELRESPONSE_MODELINFO_PARAMETERSENTRY']._serialized_end=1839
+  _globals['_PATTERNSERVICE']._serialized_start=1842
+  _globals['_PATTERNSERVICE']._serialized_end=2082
+  _globals['_IMAGEGENERATIONSERVICE']._serialized_start=2085
+  _globals['_IMAGEGENERATIONSERVICE']._serialized_end=2342
 # @@protoc_insertion_point(module_scope)

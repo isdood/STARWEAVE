@@ -1,5 +1,35 @@
 # Image Generation System - Implementation Plan
 
+## Implementation Status
+
+### ✅ Completed (Phase 1.1)
+- [x] Defined Protocol Buffers schema for image generation service
+- [x] Added necessary Python dependencies to requirements.txt
+- [x] Created ImageGenerationServicer implementation
+- [x] Integrated with existing gRPC server
+- [x] Implemented model loading and caching with validation
+- [x] Added comprehensive request validation and error handling
+- [x] Integrated Stable Diffusion for image generation
+- [x] Added health checks and monitoring endpoints
+- [x] Implemented graceful shutdown and resource cleanup
+- [x] Added disk and memory cache management
+- [x] Added ROCm (AMD GPU) support with automatic fallback to CPU
+- [x] Improved error handling for model loading and device management
+- [x] Enhanced logging and diagnostics for better troubleshooting
+
+### 🔄 In Progress
+- [ ] Performance optimization for concurrent requests
+- [ ] Add more model variants and configurations
+- [ ] Implement advanced image editing features
+- [ ] Add comprehensive unit and integration tests
+- [ ] Implement model warmup and preloading
+
+### 📅 Up Next
+- [ ] Elixir client implementation
+- [ ] Template system integration
+- [ ] Web interface components
+- [ ] Testing and documentation
+
 ## Overview
 The Image Generation System enables STARWEAVE to generate images based on natural language descriptions, enhancing its multi-modal capabilities. This system integrates with the existing gRPC infrastructure and web interface while maintaining clear separation between text and image generation services.
 
@@ -15,14 +45,47 @@ The Image Generation System enables STARWEAVE to generate images based on natura
 ### System Components
 
 #### 1. Image Generation Service (Python/gRPC)
-- **Location**: `services/python/server/image_generation_server.py`
-- **Framework**: gRPC service extending existing PatternService infrastructure
-- **Models**: HuggingFace Diffusers (Stable Diffusion, DALL-E alternatives)
+- **Location**: `services/python/server/image_generation_servicer.py`
+- **Framework**: gRPC service with health checking
+- **Models**: HuggingFace Diffusers (Stable Diffusion 2.1 by default)
 - **Features**:
   - Text-to-image generation
-  - Style transfer capabilities
-  - Image-to-image enhancement
-  - Batch processing support
+  - Model caching and management
+  - Automatic model loading/unloading
+  - Resource monitoring and cleanup
+  - Graceful shutdown handling
+  - Health check endpoints
+  - Configurable cache sizes and cleanup intervals
+
+##### Service Configuration
+```bash
+# Start the server with custom configuration
+python -m server.image_generation_servicer \
+    --port 50051 \
+    --model-dir ./models \
+    --max-models 2 \
+    --max-disk-cache 10 \
+    --cleanup-interval 300
+
+# Check server logs for device information
+# Should show something like:
+# Initialized with device: cuda, dtype: torch.float16  # When using GPU/ROCm
+# or
+# Initialized with device: cpu, dtype: torch.float32  # When falling back to CPU
+```
+
+##### Environment Variables
+- `CUDA_VISIBLE_DEVICES`: Control GPU visibility (e.g., "0" for first GPU)
+- `TORCH_DTYPE`: Set tensor precision (float16, float32, bfloat16)
+- `HF_HOME`: Custom HuggingFace cache directory
+- `HSA_OVERRIDE_GFX_VERSION`: Set ROCm GPU version (e.g., "10.3.0")
+- `HCC_AMDGPU_TARGET`: Set ROCm target architecture (e.g., "gfx1030")
+
+##### Health Check Endpoint
+```bash
+# Check service health
+grpc_cli call localhost:50051 grpc.health.v1.Health/Check ""
+```
 
 #### 2. Elixir Integration Layer
 - **Location**: `apps/starweave_llm/lib/starweave_llm/image_generation/`
@@ -252,11 +315,83 @@ message ImageSettings {
 
 ## Future Enhancements
 
+## Getting Started
+
+### Prerequisites
+- Python 3.8+
+- CUDA-capable GPU (recommended)
+- Docker (for containerized deployment)
+
+### Installation
+1. Create and activate virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   ```
+
+2. Install dependencies:
+   ```bash
+   cd services/python
+   pip install -r requirements.txt
+   ```
+
+3. Start the service:
+   ```bash
+   python -m server.image_generation_servicer
+   ```
+
+### Example Usage
+
+#### Generate an Image
+```python
+import grpc
+from starweave_pb2 import ImageRequest, ImageSettings
+from starweave_pb2_grpc import ImageGenerationServiceStub
+
+channel = grpc.insecure_channel('localhost:50051')
+stub = ImageGenerationServiceStub(channel)
+
+request = ImageRequest(
+    prompt="A futuristic city at night, neon lights, cyberpunk style",
+    settings=ImageSettings(
+        width=768,
+        height=768,
+        num_inference_steps=30,
+        guidance_scale=7.5,
+        seed=42
+    )
+)
+
+response = stub.GenerateImage(request)
+
+# Save the generated image
+with open('generated_image.png', 'wb') as f:
+    f.write(response.image_data)
+```
+
+### Monitoring and Maintenance
+
+#### Cache Management
+The service automatically manages:
+- GPU memory usage (unloads least recently used models)
+- Disk cache (removes oldest models when space is needed)
+- Model validation (verifies model integrity on load)
+
+#### Logs
+Logs include:
+- Model loading/unloading events
+- Generation statistics
+- Resource usage
+- Error conditions
+
 ### Short-term (Post-Launch)
-- Video generation capabilities
-- 3D model generation
-- Advanced style transfer
-- Custom model training
+- [ ] Video generation capabilities
+- [ ] 3D model generation
+- [ ] Advanced style transfer
+- [ ] Custom model training
+- [ ] Multi-modal prompts (text + image)
+- [ ] Real-time generation progress
+- [ ] User-specific model fine-tuning
 
 ### Long-term Vision
 - Multi-modal generation (text + image)
