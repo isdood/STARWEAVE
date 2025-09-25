@@ -127,7 +127,7 @@ class PatternService(starweave_pb2_grpc.PatternServiceServicer):
 class ServerManager:
     """Manages the gRPC server lifecycle."""
     
-    def __init__(self, port: int = 50051, max_workers: int = 10):
+    def __init__(self, port: int = 50052, max_workers: int = 10):
         self.port = port
         self.max_workers = max_workers
         self.server = None
@@ -206,7 +206,7 @@ class ServerManager:
         self.stop()
 
 
-def serve(port: int = 50051, max_workers: int = 10) -> None:
+def serve(port: int = 50052, max_workers: int = 10) -> None:
     """Start the gRPC server."""
     # Logging already configured via logging.basicConfig; no special setup needed
     

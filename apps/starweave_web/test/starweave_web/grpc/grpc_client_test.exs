@@ -63,7 +63,7 @@ defmodule StarweaveWeb.GRPCClientTest do
 
   describe "create_channel/2" do
     test "creates a channel with default options" do
-      endpoint = "localhost:50051"
+      endpoint = "localhost:50052"
 
       # Setup the mock expectation
       expect(GRPCClientMock, :create_channel, fn ^endpoint, opts ->

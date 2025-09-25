@@ -21,7 +21,7 @@ defmodule StarweaveWeb.GRPC.PatternClient do
   alias Starweave.PatternService.Stub, as: PatternServiceStub
   alias Starweave.{PatternRequest, Pattern, PatternResponse, StatusRequest}
 
-  @default_endpoint "localhost:50051"
+  @default_endpoint "localhost:50052"
   @default_timeout 10_000
   @default_connect_timeout 5_000
 
@@ -59,7 +59,7 @@ defmodule StarweaveWeb.GRPC.PatternClient do
   ## Parameters
     - pattern: A map with the pattern data (id, data, metadata)
     - opts: Optional keyword list for additional options
-      - `:endpoint` - The gRPC server endpoint (default: from config or "localhost:50051")
+      - `:endpoint` - The gRPC server endpoint (default: from config or "localhost:50052")
       - `:timeout` - Request timeout in milliseconds (default: from config or 10_000)
       
   ## Returns
@@ -86,7 +86,7 @@ defmodule StarweaveWeb.GRPC.PatternClient do
   ## Parameters
     - detailed: Whether to include detailed status information (default: false)
     - opts: Optional keyword list for additional options
-      - `:endpoint` - The gRPC server endpoint (default: from config or "localhost:50051")
+      - `:endpoint` - The gRPC server endpoint (default: from config or "localhost:50052")
       - `:timeout` - Request timeout in milliseconds (default: from config or 10_000)
       
   ## Returns
@@ -111,7 +111,7 @@ defmodule StarweaveWeb.GRPC.PatternClient do
   ## Parameters
     - patterns: A list of pattern maps
     - opts: Optional keyword list for additional options
-      - `:endpoint` - The gRPC server endpoint (default: from config or "localhost:50051")
+      - `:endpoint` - The gRPC server endpoint (default: from config or "localhost:50052")
       - `:timeout` - Request timeout in milliseconds (default: from config or 10_000)
       
   ## Returns
@@ -222,7 +222,7 @@ defmodule StarweaveWeb.GRPC.PatternClient do
   Creates a new gRPC channel.
 
   ## Parameters
-    - endpoint: The server endpoint (e.g., "localhost:50051" or "example.com:443")
+    - endpoint: The server endpoint (e.g., "localhost:50052" or "example.com:443")
     - opts: Additional options for channel creation
       - `:timeout` - Request timeout in milliseconds
       - `:connect_timeout` - Connection timeout in milliseconds
@@ -274,7 +274,7 @@ defmodule StarweaveWeb.GRPC.PatternClient do
     case String.split(endpoint, ":") do
       [host] ->
         # Default gRPC port if not specified
-        {host, 50051}
+        {host, 50052}
 
       [host, port_str] ->
         {host, String.to_integer(port_str)}
@@ -334,7 +334,7 @@ defmodule StarweaveWeb.GRPC.PatternClient do
       context: opts[:context] || []
     }
 
-    with {:ok, channel} <- create_channel("localhost:50051", opts) do
+    with {:ok, channel} <- create_channel("localhost:50052", opts) do
       case PatternServiceStub.recognize_pattern(channel, [request]) do
         {:ok, stream} ->
           # Wrap the stream to ensure the channel is closed when done
