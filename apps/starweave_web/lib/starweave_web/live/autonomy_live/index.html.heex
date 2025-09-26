@@ -1,0 +1,289 @@
+<div class="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+  <!-- Header -->
+  <div class="bg-black/20 backdrop-blur-sm border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center py-6">
+        <div class="flex items-center space-x-4">
+          <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+            <span class="text-2xl">🌌</span>
+          </div>
+            <div>
+              <h1 class="text-3xl font-bold text-white">STARWEAVE Autonomy</h1>
+              <p class="text-purple-200">Continuous Learning & Self-Evolution</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <div class="text-right">
+              <div class="text-sm text-purple-200">Last Update</div>
+              <div class="text-white font-mono">{format_timestamp(@last_update)}</div>
+            </div>
+            <button
+              phx-click="toggle_details"
+              class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors"
+            >
+              <%= if @show_details, do: "Hide", else: "Show" %> Details
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- System Status Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Memory Usage -->
+        <div class="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-purple-200 text-sm">Memory Usage</p>
+              <p class="text-2xl font-bold text-white">{format_bytes(@system_status.metrics.memory_usage)}</p>
+            </div>
+            <div class="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+              <span class="text-2xl">🧠</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pattern Count -->
+        <div class="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-purple-200 text-sm">Active Patterns</p>
+              <p class="text-2xl font-bold text-white">{@system_status.metrics.pattern_count}</p>
+            </div>
+            <div class="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+              <span class="text-2xl">🔗</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Goals -->
+        <div class="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-purple-200 text-sm">Active Goals</p>
+              <p class="text-2xl font-bold text-white">{@system_status.metrics.goal_count}</p>
+            </div>
+            <div class="w-12 h-12 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+              <span class="text-2xl">🎯</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Learning Cycles -->
+        <div class="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-purple-200 text-sm">Learning Cycles</p>
+              <p class="text-2xl font-bold text-white">{@system_status.metrics.learning_cycles}</p>
+            </div>
+            <div class="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
+              <span class="text-2xl">🔄</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Health -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Component Status -->
+        <div class="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+          <h3 class="text-xl font-bold text-white mb-4">System Components</h3>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                  <span class="text-sm">🔄</span>
+                </div>
+                <span class="text-white">Learning Orchestrator</span>
+              </div>
+              <span class={"#{get_component_status_color(@system_status.components.learning_orchestrator)}"}>
+                {String.capitalize(to_string(@system_status.components.learning_orchestrator))}
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                  <span class="text-sm">📚</span>
+                </div>
+                <span class="text-white">Knowledge Acquirer</span>
+              </div>
+              <span class={"#{get_component_status_color(@system_status.components.web_knowledge_acquirer)}"}>
+                {String.capitalize(to_string(@system_status.components.web_knowledge_acquirer))}
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+                  <span class="text-sm">🤔</span>
+                </div>
+                <span class="text-white">Self-Modification Agent</span>
+              </div>
+              <span class={"#{get_component_status_color(@system_status.components.self_modification_agent)}"}>
+                {String.capitalize(to_string(@system_status.components.self_modification_agent))}
+              </span>
+            </div>
+          </div>
+
+          <!-- Overall Health -->
+          <div class="mt-6 pt-4 border-t border-white/10">
+            <div class="flex items-center justify-between">
+              <span class="text-white font-medium">System Health:</span>
+              <span class={"#{get_health_color(@system_status.system_health)}"}>
+                {String.capitalize(to_string(@system_status.system_health))}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Next Activities -->
+        <div class="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+          <h3 class="text-xl font-bold text-white mb-4">Scheduled Activities</h3>
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                  <span class="text-sm">🔄</span>
+                </div>
+                <span class="text-white">Learning Cycle</span>
+              </div>
+              <span class="text-purple-300">{@autonomy_status.next_learning_cycle}</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                  <span class="text-sm">📚</span>
+                </div>
+                <span class="text-white">Knowledge Acquisition</span>
+              </div>
+              <span class="text-purple-300">{@autonomy_status.next_knowledge_acquisition}</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+                  <span class="text-sm">🤔</span>
+                </div>
+                <span class="text-white">Self-Reflection</span>
+              </div>
+              <span class="text-purple-300">{@autonomy_status.next_self_reflection}</span>
+            </div>
+          </div>
+
+          <!-- Manual Triggers -->
+          <div class="mt-6 pt-4 border-t border-white/10">
+            <h4 class="text-white font-medium mb-3">Manual Triggers</h4>
+            <div class="flex space-x-2">
+              <button
+                phx-click="trigger_learning_cycle"
+                class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+              >
+                Trigger Learning
+              </button>
+              <button
+                phx-click="trigger_knowledge_acquisition"
+                class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors"
+              >
+                Trigger Knowledge
+              </button>
+              <button
+                phx-click="trigger_autonomous_cycle"
+                class="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors"
+              >
+                Full Cycle
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activities -->
+      <div class="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xl font-bold text-white">Recent Autonomous Activities</h3>
+          <div class="flex items-center space-x-2">
+            <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span class="text-green-400 text-sm">Live</span>
+          </div>
+        </div>
+
+        <div class="space-y-3 max-h-96 overflow-y-auto">
+          <%= for activity <- @recent_activities do %>
+            <div class="flex items-start space-x-3 p-3 bg-white/5 rounded-lg">
+              <div class="flex-shrink-0">
+                <%= case activity.type do %>
+                  <% :autonomous_learning -> %>
+                    <div class="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                      <span class="text-sm">🔄</span>
+                    </div>
+                  <% :knowledge_acquisition -> %>
+                    <div class="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                      <span class="text-sm">📚</span>
+                    </div>
+                  <% :self_reflection -> %>
+                    <div class="w-8 h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+                      <span class="text-sm">🤔</span>
+                    </div>
+                  <% _ -> %>
+                    <div class="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                      <span class="text-sm">✨</span>
+                    </div>
+                <% end %>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-white">{activity.description}</p>
+                <div class="flex items-center space-x-4 mt-1 text-sm text-purple-300">
+                  <span>{format_timestamp(activity.timestamp)}</span>
+                  <%= if Map.has_key?(activity, :insights_generated) do %>
+                    <span>{activity.insights_generated} insights</span>
+                  <% end %>
+                  <%= if Map.has_key?(activity, :patterns_analyzed) do %>
+                    <span>{activity.patterns_analyzed} patterns</span>
+                  <% end %>
+                  <%= if Map.has_key?(activity, :sources_processed) do %>
+                    <span>{activity.sources_processed} sources</span>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          <% end %>
+
+          <%= if Enum.empty?(@recent_activities) do %>
+            <div class="text-center py-8 text-purple-300">
+              <div class="w-16 h-16 mx-auto mb-4 bg-purple-500/20 rounded-full flex items-center justify-center">
+                <span class="text-2xl">🌙</span>
+              </div>
+              <p>Autonomous activities will appear here as STARWEAVE learns and evolves</p>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <!-- Detailed View (when expanded) -->
+      <%= if @show_details do %>
+        <div class="mt-8 bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+          <h3 class="text-xl font-bold text-white mb-4">Learning History</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <%= for entry <- @autonomy_status.learning_history |> Enum.take(10) do %>
+              <div class="bg-white/5 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-white font-medium">{format_timestamp(entry.timestamp)}</span>
+                  <span class="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
+                    {entry.type}
+                  </span>
+                </div>
+                <div class="space-y-1 text-sm text-purple-200">
+                  <div>Insights: {entry.insights_generated}</div>
+                  <div>Patterns: {entry.patterns_analyzed}</div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+  </div>
+</div>

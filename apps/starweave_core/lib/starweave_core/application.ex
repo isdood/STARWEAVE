@@ -40,7 +40,10 @@ defmodule StarweaveCore.Application do
       {StarweaveCore.Distributed.Supervisor, []},
       
       # Intelligence services (includes WorkingMemory)
-      {StarweaveCore.Intelligence.Supervisor, []}
+      {StarweaveCore.Intelligence.Supervisor, []},
+      
+      # Autonomous systems
+      {StarweaveCore.Autonomous.Supervisor, []}
     ]
 
     # Start the supervisor

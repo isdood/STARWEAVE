@@ -1,0 +1,435 @@
+defmodule StarweaveCore.Autonomous.WebKnowledgeAcquirer do
+  @moduledoc """
+  Autonomous web scraping system for knowledge acquisition.
+
+  This module safely scrapes the web for educational and scientific content,
+  processes unstructured data, and feeds it into STARWEAVE's pattern learning system.
+  """
+
+  use GenServer
+  require Logger
+
+  alias StarweaveCore.Intelligence.{PatternLearner, WorkingMemory}
+
+  @default_sources [
+    # Academic and Research
+    "https://arxiv.org/rss/cs.AI",
+    "https://arxiv.org/rss/cs.LG",
+    "https://paperswithcode.com/rss",
+    "https://www.nature.com/nature.rss",
+    "https://www.science.org/rss/current.xml",
+
+    # Technology and Programming
+    "https://dev.to/feed",
+    "https://medium.com/feed/tag/artificial-intelligence",
+    "https://towardsdatascience.com/feed",
+
+    # Educational Content
+    "https://www.khanacademy.org/rss",
+    "https://ocw.mit.edu/rss/all/",
+  ]
+
+  @blocked_domains [
+    "pornhub.com", "xvideos.com", "youporn.com", "redtube.com",
+    "4chan.org", "8kun.top", "gab.com", "parler.com",
+    "spam", "casino", "gambling", "pharmacy"
+  ]
+
+  @content_filters [
+    # Educational/Scientific keywords
+    "research", "study", "analysis", "algorithm", "neural network",
+    "machine learning", "artificial intelligence", "data science",
+    "quantum", "physics", "mathematics", "computer science",
+    "programming", "software", "technology", "innovation"
+  ]
+
+  defmodule State do
+    defstruct [
+      sources: [],
+      scraping_schedule: nil,
+      last_scraped: nil,
+      content_stats: %{},
+      safety_violations: []
+    ]
+  end
+
+  # Client API
+
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
+
+  def get_status do
+    GenServer.call(__MODULE__, :get_status)
+  end
+
+  def trigger_scraping do
+    GenServer.cast(__MODULE__, :trigger_scraping)
+  end
+
+  def add_source(url) do
+    GenServer.call(__MODULE__, {:add_source, url})
+  end
+
+  def remove_source(url) do
+    GenServer.call(__MODULE__, {:remove_source, url})
+  end
+
+  # Server Callbacks
+
+  def init(_opts) do
+    Logger.info("Starting Web Knowledge Acquirer")
+
+    # Load sources from working memory or use defaults
+    sources = case WorkingMemory.retrieve(:knowledge_sources, :all) do
+      {:ok, saved_sources} -> saved_sources
+      _ -> @default_sources
+    end
+
+    # Schedule periodic scraping (every 6 hours)
+    schedule = Process.send_after(self(), :periodic_scraping, :timer.hours(6))
+
+    {:ok, %State{
+      sources: sources,
+      scraping_schedule: schedule,
+      content_stats: %{}
+    }}
+  end
+
+  def handle_call(:get_status, _from, state) do
+    status = %{
+      sources_count: length(state.sources),
+      sources: state.sources,
+      last_scraped: state.last_scraped,
+      content_stats: state.content_stats,
+      safety_violations: state.safety_violations,
+      next_scraping_in: remaining_time(state.scraping_schedule)
+    }
+    {:reply, status, state}
+  end
+
+  def handle_call({:add_source, url}, _from, state) do
+    if safe_url?(url) do
+      updated_sources = [url | state.sources] |> Enum.uniq()
+      WorkingMemory.store(:knowledge_sources, :all, updated_sources)
+
+      {:reply, {:ok, "Source added"}, %{state | sources: updated_sources}}
+    else
+      {:reply, {:error, "URL blocked for safety reasons"}, state}
+    end
+  end
+
+  def handle_call({:remove_source, url}, _from, state) do
+    updated_sources = Enum.reject(state.sources, &(&1 == url))
+    WorkingMemory.store(:knowledge_sources, :all, updated_sources)
+
+    {:reply, {:ok, "Source removed"}, %{state | sources: updated_sources}}
+  end
+
+  def handle_cast(:trigger_scraping, state) do
+    send(self(), :periodic_scraping)
+    {:noreply, state}
+  end
+
+  def handle_info(:periodic_scraping, state) do
+    Logger.info("Starting autonomous knowledge acquisition from #{length(state.sources)} sources")
+
+    # Perform scraping
+    scraping_result = perform_knowledge_scraping(state.sources)
+
+    # Process and learn from scraped content
+    _learning_result = process_scraped_content(scraping_result)
+
+    # Update state
+    new_schedule = Process.send_after(self(), :periodic_scraping, :timer.hours(6))
+
+    {:noreply, %{
+      state |
+      last_scraped: DateTime.utc_now(),
+      content_stats: Map.merge(state.content_stats, scraping_result.stats),
+      scraping_schedule: new_schedule
+    }}
+  end
+
+  # Private Functions
+
+  defp remaining_time(nil), do: "Unknown"
+  defp remaining_time(timer_ref) do
+    case Process.read_timer(timer_ref) do
+      false -> 0
+      ms when is_integer(ms) -> div(ms, 1000)
+    end
+  end
+
+  defp safe_url?(url) do
+    uri = URI.parse(url)
+
+    # Check against blocked domains
+    domain_blocked = @blocked_domains
+    |> Enum.any?(fn blocked ->
+      String.contains?(uri.host || "", blocked)
+    end)
+
+    # Check for suspicious patterns
+    suspicious_patterns = [
+      "porn", "adult", "xxx", "sex", "casino", "gambling",
+      "pharmacy", "spam", "hack", "crack", "warez"
+    ]
+
+    suspicious_content = suspicious_patterns
+    |> Enum.any?(fn pattern ->
+      String.contains?(String.downcase(url), pattern)
+    end)
+
+    # Must be HTTP/HTTPS and not blocked
+    is_http = uri.scheme in ["http", "https"]
+    not_blocked = !domain_blocked && !suspicious_content
+
+    is_http && not_blocked
+  end
+
+  defp perform_knowledge_scraping(sources) do
+    Logger.info("Scraping #{length(sources)} knowledge sources")
+
+    results = sources
+    |> Task.async_stream(
+      fn source ->
+        scrape_single_source(source)
+      end,
+      max_concurrency: 3,
+      timeout: 30_000
+    )
+    |> Enum.map(fn {:ok, result} -> result end)
+
+    # Aggregate results
+    %{
+      sources_processed: length(results),
+      content_items: results |> Enum.map(& &1.items) |> List.flatten(),
+      stats: results |> Enum.map(& &1.stats) |> aggregate_stats(),
+      timestamp: DateTime.utc_now()
+    }
+  end
+
+  defp scrape_single_source(source_url) do
+    try do
+      # Use Req for HTTP requests (already available in Phoenix)
+      response = Req.get!(source_url, headers: [
+        "User-Agent": "STARWEAVE-Knowledge-Acquirer/1.0 (Educational Research)",
+        "Accept": "application/rss+xml, application/xml, text/xml"
+      ])
+
+      # Parse RSS/Atom feed
+      content_items = parse_feed_content(response.body, source_url)
+
+      # Filter for educational/scientific content
+      filtered_items = filter_educational_content(content_items)
+
+      %{
+        source: source_url,
+        items: filtered_items,
+        stats: %{
+          total_items: length(content_items),
+          filtered_items: length(filtered_items),
+          educational_score: calculate_educational_score(filtered_items)
+        }
+      }
+    catch
+      error ->
+        Logger.warning("Failed to scrape #{source_url}: #{inspect(error)}")
+        %{source: source_url, items: [], stats: %{error: true}}
+    end
+  end
+
+  defp parse_feed_content(body, source_url) do
+    # Simple RSS/Atom parsing (in production, use a proper XML parser)
+    # This is a simplified version - you'd want more robust parsing
+
+    items = case source_url do
+      _ ->
+        parse_arxiv_feed(body)
+      _ ->
+        parse_medium_feed(body)
+      _ ->
+        parse_generic_feed(body)
+    end
+
+    items |> Enum.take(10) # Limit to recent 10 items
+  end
+
+  defp parse_arxiv_feed(body) do
+    # Parse arXiv RSS format
+    # This is simplified - real implementation would use proper XML parsing
+    []
+  end
+
+  defp parse_medium_feed(body) do
+    # Parse Medium RSS format
+    []
+  end
+
+  defp parse_generic_feed(body) do
+    # Generic RSS/Atom parsing
+    []
+  end
+
+  defp filter_educational_content(items) do
+    items
+    |> Enum.filter(fn item ->
+      title = String.downcase(item.title || "")
+      description = String.downcase(item.description || "")
+      content = String.downcase(item.content || "")
+
+      # Check if content matches educational keywords
+      educational_score = @content_filters
+      |> Enum.count(fn keyword ->
+        String.contains?(title, keyword) ||
+        String.contains?(description, keyword) ||
+        String.contains?(content, keyword)
+      end)
+
+      # Must have at least 2 educational keywords
+      educational_score >= 2
+    end)
+  end
+
+  defp calculate_educational_score(items) do
+    if Enum.empty?(items) do
+      0.0
+    else
+      # Calculate average educational relevance
+      scores = items
+      |> Enum.map(fn item ->
+        title = String.downcase(item.title || "")
+        @content_filters
+        |> Enum.count(fn keyword -> String.contains?(title, keyword) end)
+        |> then(fn count -> count / length(@content_filters) end)
+      end)
+
+      Enum.sum(scores) / length(scores)
+    end
+  end
+
+  defp aggregate_stats(stats_list) do
+    stats_list
+    |> Enum.reject(& &1[:error])
+    |> then(fn valid_stats ->
+      %{
+        total_sources: length(valid_stats),
+        avg_educational_score: valid_stats
+          |> Enum.map(& &1.educational_score)
+          |> average(),
+        total_filtered_items: valid_stats
+          |> Enum.map(& &1.filtered_items)
+          |> Enum.sum()
+      }
+    end)
+  end
+
+  defp average([]), do: 0.0
+  defp average(list), do: Enum.sum(list) / length(list)
+
+  defp process_scraped_content(scraping_result) do
+    Logger.info("Processing #{length(scraping_result.content_items)} content items for pattern learning")
+
+    # Convert unstructured content to patterns
+    patterns = scraping_result.content_items
+    |> Enum.map(fn item ->
+      # Extract meaningful patterns from content
+      pattern_data = extract_patterns_from_content(item)
+
+      %{
+        id: "web_#{item.source}_#{item.published}",
+        data: pattern_data,
+        metadata: %{
+          source: item.source,
+          title: item.title,
+          published: item.published,
+          content_type: :web_scraped,
+          educational_score: item.educational_score
+        },
+        energy: calculate_pattern_energy(pattern_data),
+        created_at: DateTime.utc_now()
+      }
+    end)
+
+    # Feed patterns to the learning system
+    patterns
+    |> Enum.each(fn pattern ->
+      # Store in working memory for pattern learning
+      WorkingMemory.store(:web_patterns, pattern.id, pattern)
+
+      # Trigger pattern learning
+      PatternLearner.learn_from_event(%{
+        type: :knowledge_acquisition,
+        pattern: pattern,
+        timestamp: DateTime.utc_now()
+      })
+    end)
+
+    %{
+      patterns_created: length(patterns),
+      sources_processed: scraping_result.sources_processed,
+      educational_content_ratio: calculate_educational_ratio(scraping_result)
+    }
+  end
+
+  defp extract_patterns_from_content(item) do
+    # Extract meaningful patterns from web content
+    # This is where the "unstructured data" processing happens
+
+    content = [
+      item.title || "",
+      item.description || "",
+      item.content || ""
+    ] |> Enum.join(" ")
+
+    # Simple pattern extraction - in reality, this would be more sophisticated
+    words = content
+    |> String.split()
+    |> Enum.filter(fn word -> String.length(word) > 3 end)
+    |> Enum.frequencies()
+    |> Enum.sort_by(fn {_word, count} -> -count end)
+    |> Enum.take(20)
+    |> Enum.map(fn {word, _count} -> word end)
+
+    %{
+      keywords: words,
+      summary: String.slice(content, 0, 500),
+      domain: extract_domain(item.source),
+      content_hash: hash_content(content)
+    }
+  end
+
+  defp calculate_pattern_energy(pattern_data) do
+    # Calculate "energy" based on educational relevance and uniqueness
+    base_energy = 0.5
+
+    # Boost energy for educational content
+    educational_boost = pattern_data.educational_score * 0.3
+
+    # Boost energy for unique content
+    uniqueness_boost = case pattern_data.content_hash do
+      hash when hash < 1000 -> 0.2  # Very unique
+      hash when hash < 10000 -> 0.1  # Moderately unique
+      _ -> 0.0
+    end
+
+    min(base_energy + educational_boost + uniqueness_boost, 1.0)
+  end
+
+  defp calculate_educational_ratio(scraping_result) do
+    # Calculate what percentage of scraped content was educational
+    total_items = scraping_result.stats.total_filtered_items || 1
+    educational_items = scraping_result.stats.total_filtered_items || 0
+
+    educational_items / total_items
+  end
+
+  defp extract_domain(url) do
+    URI.parse(url).host |> String.replace_prefix("www.", "")
+  end
+
+  defp hash_content(content) do
+    :crypto.hash(:md5, content) |> :binary.decode_unsigned()
+  end
+end

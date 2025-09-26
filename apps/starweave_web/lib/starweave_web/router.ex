@@ -37,6 +37,7 @@ defmodule StarweaveWeb.Router do
     pipe_through [:browser, :live_view]
     live "/", PatternLive.Index, :index
     live "/dets-dashboard", DetsDashboardLive.Index, :index
+    live "/autonomy", AutonomyLive.Index, :index
   end
 
   # Other scopes may use custom stacks.

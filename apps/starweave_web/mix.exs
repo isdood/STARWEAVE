@@ -48,6 +48,10 @@ defmodule StarweaveWeb.MixProject do
       {:phoenix, "~> 1.8.0"},
       {:phoenix_ecto, "~> 4.6"},
       {:ecto, "~> 3.11.1"},
+      
+      # Time and date handling
+      {:timex, "~> 3.7"},
+      {:tzdata, "~> 1.1"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.1.0"},
