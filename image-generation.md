@@ -80,17 +80,32 @@ python -m server.image_generation_servicer \
 
 ### Elixir Quickstart
 
+#### Setup Prerequisites
+
+1. **Install Protocol Buffers Compiler**
+   - On Ubuntu/Debian:
+     ```bash
+     sudo apt-get update && sudo apt-get install -y protobuf-compiler
+     ```
+   - On macOS (using Homebrew):
+     ```bash
+     brew install protobuf
+     ```
+
+2. **Setup Elixir Protocol Buffers**
+   ```bash
+   # Run the setup script to configure your environment
+   chmod +x setup_protoc.sh
+   ./setup_protoc.sh
+   
+   # Source your shell configuration or restart your terminal
+   source ~/.bashrc  # or ~/.zshrc
+   
+   # Verify the installation
+   which protoc-gen-elixir
+   ```
+
 #### Generate Protobuf Modules
-
-Prerequisites:
-
-- Install `protoc` (Protocol Buffers compiler)
-- Install Elixir plugin for `protoc` (provides `protoc-gen-elixir`):
-
-```bash
-mix escript.install hex protobuf --force
-export PATH="$HOME/.mix/escripts:$PATH"
-```
 
 Generate Elixir modules from `starweave.proto`:
 
