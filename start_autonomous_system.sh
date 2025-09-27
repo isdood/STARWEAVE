@@ -80,19 +80,6 @@ if ! wait_for_component "mix phx.server"; then
 fi
 
 echo ""
-echo "🎯 Starting Autonomous Intelligence Components..."
-echo ""
-
-# Start the autonomous system integrator (coordinates everything)
-start_component "StarweaveCore.Autonomous.SystemIntegrator" \
-    "cd apps/starweave_core && elixir --name starweave@127.0.0.1 --cookie starweave -S mix run -e 'StarweaveCore.Autonomous.SystemIntegrator.start_link(); :timer.sleep(:infinity)'"
-
-if ! wait_for_component "StarweaveCore.Autonomous.SystemIntegrator"; then
-    echo "❌ Failed to start system integrator"
-    exit 1
-fi
-
-echo ""
 echo "🤖 Starting Individual Autonomous Components..."
 echo ""
 
@@ -107,6 +94,19 @@ start_component "StarweaveCore.Autonomous.WebKnowledgeAcquirer" \
 # Start the self-modification agent
 start_component "StarweaveCore.Autonomous.SelfModificationAgent" \
     "elixir --name modification@127.0.0.1 --cookie starweave -S mix run -e 'StarweaveCore.Autonomous.SelfModificationAgent.start_link(); :timer.sleep(:infinity)'"
+
+echo ""
+echo "🎯 Starting Autonomous System Integrator..."
+echo ""
+
+# Start the autonomous system integrator (coordinates everything)
+start_component "StarweaveCore.Autonomous.SystemIntegrator" \
+    "cd apps/starweave_core && elixir --name starweave@127.0.0.1 --cookie starweave -S mix run -e 'StarweaveCore.Autonomous.SystemIntegrator.start_link(); :timer.sleep(:infinity)'"
+
+if ! wait_for_component "StarweaveCore.Autonomous.SystemIntegrator"; then
+    echo "❌ Failed to start system integrator"
+    exit 1
+fi
 
 echo ""
 echo "🔗 Initializing Autonomous System Integration..."

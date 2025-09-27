@@ -19,8 +19,11 @@ defmodule StarweaveWeb.AutonomyLive.Index do
   def mount(_params, _session, socket) do
     Logger.info("Mounting autonomy dashboard")
 
+    # Ensure WorkingMemory is initialized
+    ensure_working_memory_initialized()
+
     # Start the autonomous system if not already running
-    start_autonomous_system()
+    start_autonomous_system_if_needed()
 
     # Schedule periodic updates
     schedule_update()
@@ -82,13 +85,52 @@ defmodule StarweaveWeb.AutonomyLive.Index do
     {:noreply, socket}
   end
 
+  def handle_info(:refresh, socket) do
+    # Get fresh data
+    system_status = get_system_status()
+    autonomy_status = get_autonomy_status()
+    recent_activities = get_recent_activities()
+
+    socket = assign(socket,
+      system_status: system_status,
+      autonomy_status: autonomy_status,
+      recent_activities: recent_activities,
+      last_update: DateTime.utc_now()
+    )
+
+    # Schedule next update
+    if connected?(socket) do
+      Process.send_after(self(), :refresh, 30_000)  # Refresh every 30 seconds
+    end
+
+    {:noreply, socket}
+  end
+
   # Helper Functions
+
+  defp ensure_working_memory_initialized do
+    try do
+      # Try to start the WorkingMemory if it's not already running
+      case Process.whereis(StarweaveCore.Intelligence.WorkingMemory) do
+        nil ->
+          # WorkingMemory is not running, try to start it
+          StarweaveCore.Intelligence.WorkingMemory.start_link()
+          Logger.info("Started WorkingMemory for autonomy dashboard")
+        _pid ->
+          # WorkingMemory is already running
+          :ok
+      end
+    catch
+      error ->
+        Logger.warning("Could not ensure WorkingMemory is initialized: #{inspect(error)}")
+    end
+  end
 
   defp schedule_update do
     Process.send_after(self(), :update_dashboard, 5000)  # Update every 5 seconds
   end
 
-  defp start_autonomous_system do
+  defp start_autonomous_system_if_needed do
     try do
       # Try to start the system integrator
       case SystemIntegrator.start_autonomous_system() do

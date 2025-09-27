@@ -95,27 +95,34 @@ defmodule StarweaveCore.Intelligence.Storage.DetsWorkingMemory do
   """
   @spec get_context(atom()) :: [{term(), term(), map()}]
   def get_context(context) do
-    :dets.match_object(@dets_table, {{context, :_}, :_})
-    |> Enum.map(fn {{^context, key}, {^context, _key, value, timestamp, ttl, importance}} ->
-      if is_expired?(ttl) do
-        :dets.delete(@dets_table, {context, key})
-        nil
-      else
-        metadata = %{
-          timestamp: timestamp,
-          ttl: ttl,
-          importance: importance
-        }
-        {key, value, metadata}
-      end
-    end)
-    |> Enum.reject(&is_nil/1)
-    |> Enum.sort_by(
-      fn {_key, _value, %{timestamp: ts, importance: imp}} -> 
-        {DateTime.to_unix(ts), imp} 
-      end,
-      &>=/2
-    )
+    case :dets.match_object(@dets_table, {{context, :_}, :_}) do
+      {:error, reason} ->
+        Logger.error("Failed to get context #{inspect(context)} from DETS: #{inspect(reason)}")
+        []
+
+      matches ->
+        matches
+        |> Enum.map(fn {{^context, key}, {^context, _key, value, timestamp, ttl, importance}} ->
+          if is_expired?(ttl) do
+            :dets.delete(@dets_table, {context, key})
+            nil
+          else
+            metadata = %{
+              timestamp: timestamp,
+              ttl: ttl,
+              importance: importance
+            }
+            {key, value, metadata}
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.sort_by(
+          fn {_key, _value, %{timestamp: ts, importance: imp}} ->
+            {DateTime.to_unix(ts), imp}
+          end,
+          &>=/2
+        )
+    end
   end
   
   @doc """
@@ -123,7 +130,12 @@ defmodule StarweaveCore.Intelligence.Storage.DetsWorkingMemory do
   """
   @spec delete(atom(), term()) :: :ok | {:error, term()}
   def delete(context, key) do
-    :dets.delete(@dets_table, {context, key})
+    case :dets.delete(@dets_table, {context, key}) do
+      :ok -> :ok
+      error ->
+        Logger.error("Failed to delete from DETS: #{inspect(error)}")
+        error
+    end
   end
   
   @doc """
@@ -131,7 +143,12 @@ defmodule StarweaveCore.Intelligence.Storage.DetsWorkingMemory do
   """
   @spec clear_context(atom()) :: :ok | {:error, term()}
   def clear_context(context) do
-    :dets.match_delete(@dets_table, {{context, :_}, :_})
+    case :dets.match_delete(@dets_table, {{context, :_}, :_}) do
+      :ok -> :ok
+      error ->
+        Logger.error("Failed to clear context #{inspect(context)} from DETS: #{inspect(error)}")
+        error
+    end
   end
   
   @doc """
@@ -140,9 +157,9 @@ defmodule StarweaveCore.Intelligence.Storage.DetsWorkingMemory do
   @spec search(String.t()) :: [{term(), term(), map()}]
   def search(query) when is_binary(query) do
     query = String.downcase(query)
-    
-    :dets.foldl(
-      fn 
+
+    case :dets.foldl(
+      fn
         {{context, key}, {_, _, value, timestamp, ttl, importance} = _entry}, acc ->
           if is_expired?(ttl) do
             :dets.delete(@dets_table, {context, key})
@@ -162,7 +179,13 @@ defmodule StarweaveCore.Intelligence.Storage.DetsWorkingMemory do
       end,
       [],
       @dets_table
-    )
+    ) do
+      {:error, reason} ->
+        Logger.error("Failed to search DETS table: #{inspect(reason)}")
+        []
+      results ->
+        results
+    end
   end
   
   # Helper function to check if a value contains a search term

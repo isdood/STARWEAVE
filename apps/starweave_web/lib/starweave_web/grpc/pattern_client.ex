@@ -273,7 +273,7 @@ defmodule StarweaveWeb.GRPC.PatternClient do
     # Split into host and port parts
     case String.split(endpoint, ":") do
       [host] ->
-        # Default gRPC port if not specified
+        # Default gRPC port if not specified - use 50052 for PatternService
         {host, 50052}
 
       [host, port_str] ->
@@ -334,7 +334,8 @@ defmodule StarweaveWeb.GRPC.PatternClient do
       context: opts[:context] || []
     }
 
-    with {:ok, channel} <- create_channel("localhost:50052", opts) do
+    with endpoint <- get_endpoint(opts),
+         {:ok, channel} <- create_channel(endpoint, opts) do
       case PatternServiceStub.recognize_pattern(channel, [request]) do
         {:ok, stream} ->
           # Wrap the stream to ensure the channel is closed when done

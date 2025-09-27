@@ -53,7 +53,7 @@ config :grpc,
 
 # Configure gRPC client with development settings
 config :starweave_web, StarweaveWeb.GRPC.PatternClient,
-  endpoint: "localhost:50051",
+  endpoint: "localhost:50052",
   ssl: false,
   adapter: GRPC.Client.Adapters.Gun,
   connect_timeout: 10_000,
@@ -89,7 +89,7 @@ config :grpc,
   # We're only using the client in this app
   start_server: false,
   # Default port for our Python gRPC server
-  port: 50051,
+  port: 50052,
   # Default host for our Python gRPC server
   host: "localhost",
   # These settings can be overridden in config/runtime.exs for different environments
@@ -110,7 +110,7 @@ config :starweave_web, StarweaveWeb.GRPC.PatternClient,
   # These settings can be overridden per environment
   channel_opts: [
     host: "localhost",
-    port: 50051,
+    port: 50052,
     # For development only, use proper credentials in production
     cred: :this_is_insecure,
     adapter_opts: %{

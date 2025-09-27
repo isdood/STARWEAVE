@@ -135,6 +135,15 @@ defmodule StarweaveCore.Autonomous.SystemIntegrator do
     # Schedule next health check
     Process.send_after(self(), :health_check, :timer.minutes(5))
 
+    # Every health check, also update learning cycle count in working memory
+    # This ensures the metric is persisted and available
+    try do
+      current_cycles = get_learning_cycle_count()
+      StarweaveCore.Intelligence.WorkingMemory.store(:autonomy, :learning_cycles, current_cycles)
+    catch
+      _ -> :ok
+    end
+
     {:noreply, new_state}
   end
 
@@ -394,10 +403,60 @@ defmodule StarweaveCore.Autonomous.SystemIntegrator do
   end
 
   # Helper functions (duplicated from other modules for reference)
-  defp get_memory_usage, do: 0
-  defp get_pattern_count, do: 0
-  defp get_goal_count, do: 0
-  defp get_learning_cycle_count, do: 0
+  defp get_memory_usage do
+    try do
+      # Get total memory usage from Erlang VM
+      memory = :erlang.memory(:total)
+      # Add working memory entries count
+      contexts = [:conversation, :environment, :goals, :patterns, :autonomy]
+      working_memory_count =
+        contexts
+        |> Enum.map(fn context ->
+          case StarweaveCore.Intelligence.WorkingMemory.get_context(context) do
+            entries when is_list(entries) -> length(entries)
+            _ -> 0
+          end
+        end)
+        |> Enum.sum()
+
+      # Return memory usage in bytes (VM memory + estimated working memory overhead)
+      memory + (working_memory_count * 1000)  # Rough estimate: 1KB per entry
+    catch
+      _ -> 0
+    end
+  end
+
+  defp get_pattern_count do
+    try do
+      case StarweaveCore.PatternStore.all() do
+        patterns when is_list(patterns) -> length(patterns)
+        _ -> 0
+      end
+    catch
+      _ -> 0
+    end
+  end
+
+  defp get_goal_count do
+    try do
+      StarweaveCore.Intelligence.GoalManager.list_goals()
+      |> length()
+    catch
+      _ -> 0
+    end
+  end
+
+  defp get_learning_cycle_count do
+    try do
+      # Get learning cycles completed from LearningOrchestrator
+      case StarweaveCore.Autonomous.LearningOrchestrator.get_status() do
+        %{learning_cycles_completed: count} when is_integer(count) -> count
+        _ -> 0
+      end
+    catch
+      _ -> 0
+    end
+  end
 
   defp gather_comprehensive_status do
     %{
